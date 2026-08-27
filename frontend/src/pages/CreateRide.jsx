@@ -2,55 +2,78 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ridesApi } from '../services/api.js';
 import { useToast } from '../context/ToastContext.jsx';
-import { TextField } from '../components/Field.jsx';
+import { Field } from '../components/Field.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
-
-const initial = { origin: '', destination: '', date: '', timeStart: '', timeEnd: '', seatsTotal: 3, notes: '' };
+import { IconPlus } from '../components/Icons.jsx';
 
 export default function CreateRide() {
   const navigate = useNavigate();
-  const { notify } = useToast();
-  const [form, setForm] = useState(initial);
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    setError(''); setFieldErrors({}); setBusy(true);
+    setLoading(true);
+    setError(null);
+    setFieldErrors({});
+
+    const formData = new FormData(e.target);
+    const payload = {
+      origin: formData.get('origin'),
+      destination: formData.get('destination'),
+      date: formData.get('date'),
+      timeStart: formData.get('timeStart'),
+      timeEnd: formData.get('timeEnd'),
+      seatsTotal: parseInt(formData.get('seatsTotal'), 10),
+      notes: formData.get('notes')
+    };
+
     try {
-      const ride = await ridesApi.create({ ...form, seatsTotal: Number(form.seatsTotal) });
-      notify('Ride posted. Passengers can now request a seat.', 'signal');
+      const ride = await ridesApi.create(payload);
+      toast.success('Ride published successfully!');
       navigate(`/rides/${ride.id}`);
     } catch (err) {
-      if (err.details) setFieldErrors(Object.fromEntries(err.details.map((d) => [d.field, d.message])));
       setError(err.message);
+      if (err.details) {
+        const map = {};
+        err.details.forEach((d) => (map[d.field] = d.message));
+        setFieldErrors(map);
+      }
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="stack" style={{ maxWidth: 640 }}>
+    <div className="stack" style={{ maxWidth: 600, margin: '0 auto' }}>
       <h1>Offer a ride</h1>
-      <p className="muted">Tell passengers where you're going and when. You'll approve each request yourself.</p>
-      <form className="card" onSubmit={onSubmit} noValidate>
+      <div className="card">
         <ErrorBanner message={error} />
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          <TextField label="From" name="origin" value={form.origin} onChange={onChange} error={fieldErrors.origin} placeholder="Pick-up area" required />
-          <TextField label="To" name="destination" value={form.destination} onChange={onChange} error={fieldErrors.destination} placeholder="Drop-off area" required />
-        </div>
-        <TextField label="Date" name="date" type="date" value={form.date} onChange={onChange} error={fieldErrors.date} required />
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-          <TextField label="Leaves after" name="timeStart" type="time" value={form.timeStart} onChange={onChange} error={fieldErrors.timeStart} required />
-          <TextField label="Arrives by" name="timeEnd" type="time" value={form.timeEnd} onChange={onChange} error={fieldErrors.timeEnd} required />
-          <TextField label="Seats" name="seatsTotal" type="number" min="1" max="7" value={form.seatsTotal} onChange={onChange} error={fieldErrors.seatsTotal} required />
-        </div>
-        <TextField label="Notes (optional)" name="notes" as="textarea" value={form.notes} onChange={onChange} placeholder="Meeting point, luggage space, etc." />
-        <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Posting…' : 'Post ride'}</button>
-      </form>
+        <form onSubmit={onSubmit} className="stack">
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <Field label="Origin" name="origin" required error={fieldErrors.origin} placeholder="Starting point" />
+            <Field label="Destination" name="destination" required error={fieldErrors.destination} placeholder="Where are you going?" />
+          </div>
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <Field label="Date" name="date" type="date" required error={fieldErrors.date} />
+            <Field label="Time Start" name="timeStart" type="time" required error={fieldErrors.timeStart} />
+            <Field label="Time End" name="timeEnd" type="time" required error={fieldErrors.timeEnd} />
+          </div>
+          <Field label="Available Seats" name="seatsTotal" type="number" required error={fieldErrors.seatsTotal} />
+          <div className="field">
+            <label className="field-label">Notes (optional)</label>
+            <textarea name="notes" className="input" rows="3" placeholder="Any specific requirements or pickup details..." />
+            {fieldErrors.notes && <p className="field-error">{fieldErrors.notes}</p>}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              <IconPlus /> {loading ? 'Publishing...' : 'Publish Ride'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

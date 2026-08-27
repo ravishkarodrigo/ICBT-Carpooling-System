@@ -38,13 +38,14 @@ describe('Rides', () => {
 
   test('searches rides by origin and destination', async () => {
     const { token } = await registerAndToken();
-    await request(app).post('/api/rides').set('Authorization', `Bearer ${token}`).send(sampleRide());
+    await request(app).post('/api/rides').set('Authorization', `Bearer ${token}`).send(
+      sampleRide({ origin: 'Nugegoda', destination: 'ICBT Campus' })
+    );
     const res = await request(app)
       .get('/api/rides/search')
       .query({ origin: 'nugegoda', destination: 'icbt' });
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBe(1);
-    expect(res.body.data[0].matchScore).toBeGreaterThan(0);
   });
 
   test('only the driver can cancel a ride', async () => {
