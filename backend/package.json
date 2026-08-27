@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "vitest run --reporter=verbose"
+    "test": "vitest run --reporter=verbose",
+    "test:coverage": "vitest run --coverage --reporter=verbose"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -21,6 +22,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^1.6.0",
     "supertest": "^7.0.0",
     "vitest": "^1.6.0"
   }
