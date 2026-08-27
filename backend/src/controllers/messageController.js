@@ -8,5 +8,5 @@ export const send = asyncHandler(async (req, res) => {
 
 export const conversation = asyncHandler(async (req, res) => {
   const { rideId, otherUserId } = req.params;
-  ok(res, await messageService.getConversation(req.user.id, rideId, otherUserId));
+  ok(res, await messageService.getConversation(rideId, req.user.id, otherUserId));
 });

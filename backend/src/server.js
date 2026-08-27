@@ -1,29 +1,15 @@
-import { createServer } from 'http';
-import { Server as SocketIO } from 'socket.io';
+import http from 'http';
 import { app } from './app.js';
+import { attachChat } from './sockets/chat.js';
 import { config } from './config/env.js';
+import { initFirestore } from './config/firebase.js';
 
-const httpServer = createServer(app);
+initFirestore();
 
-export const io = new SocketIO(httpServer, {
-  cors: { origin: config.clientOrigin, methods: ['GET', 'POST'], credentials: true },
-});
+const server = http.createServer(app);
+attachChat(server);
 
-io.on('connection', (socket) => {
-  console.log('[Socket.IO] Client connected:', socket.id);
-  socket.on('join:room', (roomId) => socket.join(roomId));
-  socket.on('disconnect', () => console.log('[Socket.IO] Client disconnected:', socket.id));
-});
-
-httpServer.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\n[server] ❌ Port ${config.port} is already in use.`);
-    console.error(`[server]    Run: lsof -ti:${config.port} | xargs kill -9\n`);
-    process.exit(1);
-  }
-  throw err;
-});
-
-httpServer.listen(config.port, () => {
-  console.log(`[server] ✅ Running on http://localhost:${config.port}`);
+server.listen(config.port, () => {
+  const mode = config.useInMemoryDb ? 'in-memory' : 'Firestore';
+  console.log(`Carpool API listening on :${config.port} (data store: ${mode})`);
 });

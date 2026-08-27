@@ -1,15 +1,36 @@
-import { Messages } from '../models/datastore.js';
+import { Messages, Rides } from '../models/datastore.js';
+import { ApiError } from '../utils/apiError.js';
+import { createNotification } from './notificationService.js';
 
-export async function sendMessage(senderId, { rideId, toUserId, body }) {
-  return Messages().create({ senderId, rideId, toUserId, body, sentAt: new Date().toISOString() });
+// A user may message about a ride only if they are the driver or a participant
+// (passenger or someone who has requested it). Enforces authorization.
+async function assertCanMessage(ride, userId, otherUserId) {
+  const parties = new Set([ride.driverId, ...(ride.passengerIds || [])]);
+  if (!parties.has(userId) && !parties.has(otherUserId)) {
+    throw ApiError.forbidden('You are not part of this ride conversation');
+  }
 }
 
-export async function getConversation(userId, rideId, otherUserId) {
+export async function sendMessage(fromUserId, { rideId, toUserId, body }) {
+  const ride = await Rides().getById(rideId);
+  if (!ride) throw ApiError.notFound('Ride not found');
+  await assertCanMessage(ride, fromUserId, toUserId);
+
+  const message = await Messages().create({ rideId, fromUserId, toUserId, body });
+  await createNotification(toUserId, {
+    type: 'message:new',
+    rideId,
+    message: 'You have a new message',
+  });
+  return message;
+}
+
+export async function getConversation(rideId, userId, otherUserId) {
   const all = await Messages().query(
     (m) =>
       m.rideId === rideId &&
-      ((m.senderId === userId && m.toUserId === otherUserId) ||
-        (m.senderId === otherUserId && m.toUserId === userId))
+      ((m.fromUserId === userId && m.toUserId === otherUserId) ||
+        (m.fromUserId === otherUserId && m.toUserId === userId))
   );
-  return all.sort((a, b) => a.sentAt.localeCompare(b.sentAt));
+  return all.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }

@@ -7,10 +7,5 @@ export const list = asyncHandler(async (req, res) => {
 });
 
 export const markRead = asyncHandler(async (req, res) => {
-  const notification = await notificationService.markRead(req.params.id, req.user.id);
-  if (!notification) {
-    const { ApiError } = await import('../utils/apiError.js');
-    throw ApiError.notFound('Notification not found');
-  }
-  ok(res, notification);
+  ok(res, await notificationService.markRead(req.params.id, req.user.id));
 });
