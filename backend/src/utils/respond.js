@@ -1,5 +1,17 @@
-// Uniform success envelope so the frontend always parses the same shape.
-export const ok = (res, data, status = 200) =>
-  res.status(status).json({ success: true, data });
+/**
+ * Standard JSON response helpers.
+ * All successful responses use the envelope: { success: true, data: ... }
+ * All error responses use: { success: false, error: { message, details? } }
+ */
 
-export const created = (res, data) => ok(res, data, 201);
+export function ok(res, data) {
+  return res.status(200).json({ success: true, data });
+}
+
+export function created(res, data) {
+  return res.status(201).json({ success: true, data });
+}
+
+export function noContent(res) {
+  return res.status(204).end();
+}

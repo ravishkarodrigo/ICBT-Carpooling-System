@@ -1,27 +1,61 @@
-import { createApp } from '../src/app.js';
-import { __resetInMemory } from '../src/models/datastore.js';
+/**
+ * Shared test helpers for backend integration tests.
+ * 
+ * Exports:
+ *  - app      : The Express app (no server started)
+ *  - reset    : Clears the datastore between tests
+ *  - sampleUser  : Factory for valid user payloads
+ *  - sampleRide  : Factory for valid ride payloads
+ */
+import { app } from '../src/app.js';
+import { resetDatastore } from '../src/models/datastore.js';
 
-export const app = createApp();
+export { app };
 
-export function reset() {
-  __resetInMemory();
+export async function reset() {
+  await resetDatastore();
 }
 
-export const sampleUser = (over = {}) => ({
-  name: 'Nimal Perera',
-  email: `user${Math.random().toString(36).slice(2, 8)}@icbt.lk`,
-  password: 'Colombo123',
-  role: 'student',
-  ...over,
-});
+let userCounter = 0;
 
-export const sampleRide = (over = {}) => ({
-  origin: 'Nugegoda',
-  destination: 'ICBT Campus',
-  date: '2026-09-01',
-  timeStart: '07:30',
-  timeEnd: '08:30',
-  seatsTotal: 3,
-  notes: 'Leaving from the junction',
-  ...over,
-});
+/**
+ * Returns a valid user registration payload.
+ * Pass overrides to customise individual fields.
+ */
+export function sampleUser(overrides = {}) {
+  userCounter++;
+  return {
+    name: `Test User ${userCounter}`,
+    email: `user${userCounter}@icbt.lk`,
+    password: 'Colombo123',
+    role: 'student',
+    ...overrides,
+  };
+}
+
+let rideCounter = 0;
+
+/**
+ * Returns a valid ride creation payload.
+ * Pass overrides to customise individual fields.
+ */
+export function sampleRide(overrides = {}) {
+  rideCounter++;
+  // Always pick a future date to avoid validation issues
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+
+  return {
+    origin: `Home Area ${rideCounter}`,
+    destination: 'ICBT Campus, Colombo 03',
+    date: `${yyyy}-${mm}-${dd}`,
+    timeStart: '07:00',
+    timeEnd: '08:00',
+    seatsTotal: 3,
+    notes: '',
+    ...overrides,
+  };
+}

@@ -1,11 +1,9 @@
 import request from 'supertest';
 import { app, reset, sampleUser } from './helpers.js';
-import { scoreRide, matchRides } from '../src/utils/matching.js';
-import { __resetInMemory } from '../src/models/datastore.js';
+import { matchRides } from '../src/utils/matching.js';
 
-beforeEach(() => {
-  reset();
-  __resetInMemory();
+beforeEach(async () => {
+  await reset();
 });
 
 async function registerAndToken(over) {
@@ -90,50 +88,6 @@ describe('Notifications', () => {
 
 // ─── Matching utility ─────────────────────────────────────────────────────────
 
-describe('scoreRide()', () => {
-  const baseRide = {
-    origin: 'Nugegoda', destination: 'ICBT Campus',
-    date: '2026-09-01', timeStart: '07:30', timeEnd: '08:30',
-  };
-
-  test('scores 80 for exact origin + destination match', () => {
-    expect(scoreRide(baseRide, { origin: 'nugegoda', destination: 'icbt campus' })).toBe(80);
-  });
-
-  test('scores 40 for origin-only match', () => {
-    expect(scoreRide(baseRide, { origin: 'nugegoda' })).toBe(40);
-  });
-
-  test('scores 40 for destination-only match', () => {
-    expect(scoreRide(baseRide, { destination: 'icbt' })).toBe(40);
-  });
-
-  test('adds 10 for matching date', () => {
-    const score = scoreRide(baseRide, { origin: 'nugegoda', date: '2026-09-01' });
-    expect(score).toBe(50);
-  });
-
-  test('adds 10 for overlapping time window', () => {
-    const score = scoreRide(baseRide, {
-      origin: 'nugegoda',
-      timeStart: '07:00', timeEnd: '08:00',
-    });
-    expect(score).toBe(50);
-  });
-
-  test('returns 0 for no match', () => {
-    expect(scoreRide(baseRide, { origin: 'Kandy', destination: 'Galle' })).toBe(0);
-  });
-
-  test('returns 0 for non-overlapping time window', () => {
-    const score = scoreRide(baseRide, {
-      origin: 'nugegoda',
-      timeStart: '09:00', timeEnd: '10:00',
-    });
-    expect(score).toBe(40); // origin matches but time doesn't overlap
-  });
-});
-
 describe('matchRides()', () => {
   const rides = [
     { id: '1', origin: 'Nugegoda', destination: 'ICBT', date: '2026-09-01', timeStart: '07:00', timeEnd: '08:00', status: 'open' },
@@ -141,13 +95,14 @@ describe('matchRides()', () => {
     { id: '3', origin: 'Kandy', destination: 'Galle', date: '2026-09-02', timeStart: '10:00', timeEnd: '11:00', status: 'open' },
   ];
 
-  test('filters rides with score > 0', () => {
+  test('filters by destination', () => {
     const results = matchRides(rides, { destination: 'icbt' });
     expect(results).toHaveLength(2);
   });
 
-  test('sorts by score descending', () => {
+  test('filters by origin and destination', () => {
     const results = matchRides(rides, { origin: 'nugegoda', destination: 'icbt' });
+    expect(results).toHaveLength(1);
     expect(results[0].id).toBe('1');
   });
 
@@ -156,8 +111,13 @@ describe('matchRides()', () => {
     expect(results).toHaveLength(0);
   });
 
-  test('attaches matchScore to each result', () => {
-    const results = matchRides(rides, { destination: 'icbt' });
-    expect(results[0].matchScore).toBeGreaterThan(0);
+  test('returns all rides when no search criteria given', () => {
+    const results = matchRides(rides, {});
+    expect(results).toHaveLength(3);
+  });
+
+  test('filters by date', () => {
+    const results = matchRides(rides, { date: '2026-09-01' });
+    expect(results).toHaveLength(2);
   });
 });

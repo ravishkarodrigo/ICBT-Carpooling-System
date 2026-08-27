@@ -7,5 +7,6 @@ export const list = asyncHandler(async (req, res) => {
 });
 
 export const markRead = asyncHandler(async (req, res) => {
-  ok(res, await notificationService.markRead(req.params.id, req.user.id));
+  const updated = await notificationService.markRead(req.params.id, req.user.id);
+  ok(res, updated);
 });

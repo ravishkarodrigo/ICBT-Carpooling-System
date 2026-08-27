@@ -1,31 +1,46 @@
 import { Link } from 'react-router-dom';
 import Badge from './Badge.jsx';
-import { IconCalendar, IconClock, IconUser } from './Icons.jsx';
 
-// Presentational ride card. The route line (from -> to) is the signature motif.
 export default function RideCard({ ride }) {
   return (
-    <Link to={`/rides/${ride.id}`} className="card card-hover" style={{ display: 'block', color: 'inherit' }}>
-      <div className="spread" style={{ marginBottom: 12 }}>
-        <span className="badge badge-seats">{ride.seatsAvailable} seats</span>
-        <Badge status={ride.status} />
-      </div>
-
-      <div className="ride-route">
-        <span className="dot from" />
+    <div
+      className="card"
+      style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+    >
+      {/* Origin → Destination */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
         <span>{ride.origin}</span>
-        <span className="connector" />
-        <span className="dot to" />
+        <span style={{ opacity: 0.4 }}>→</span>
         <span>{ride.destination}</span>
       </div>
 
-      <div className="ride-meta">
-        <span><IconCalendar width={15} /> {ride.date}</span>
-        <span><IconClock width={15} /> {ride.timeStart}–{ride.timeEnd}</span>
-        <span><IconUser width={15} /> {ride.driverName}</span>
+      {/* Meta */}
+      <div style={{ display: 'flex', gap: 16, fontSize: '0.85rem', color: 'var(--muted, #64748b)' }}>
+        <span>📅 {ride.date}</span>
+        <span>🕐 {ride.timeStart}–{ride.timeEnd}</span>
+        <span>🚗 {ride.driverName}</span>
       </div>
 
-      {ride.notes ? <p className="muted" style={{ marginTop: 10, fontSize: '0.88rem' }}>{ride.notes}</p> : null}
-    </Link>
+      {/* Footer row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+        <span style={{ fontSize: '0.85rem', color: 'var(--muted, #64748b)' }}>
+          {ride.seatsAvailable ?? (ride.seatsTotal - (ride.passengerIds?.length || 0))} seat(s) free
+        </span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Badge status={ride.status} />
+          <Link
+            to={`/rides/${ride.id}`}
+            style={{
+              fontSize: '0.82rem',
+              color: 'var(--primary, #2563eb)',
+              textDecoration: 'none',
+              fontWeight: 600,
+            }}
+          >
+            View →
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

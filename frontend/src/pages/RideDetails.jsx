@@ -1,88 +1,92 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ridesApi, requestsApi } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useToast } from '../context/ToastContext.jsx';
 import Loader from '../components/Loader.jsx';
 import Badge from '../components/Badge.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
-import { IconCalendar, IconClock, IconUser } from '../components/Icons.jsx';
+import { IconCalendar, IconClock, IconUser, IconChat } from '../components/Icons.jsx';
 
 export default function RideDetails() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { notify } = useToast();
   const navigate = useNavigate();
   const [ride, setRide] = useState(null);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    ridesApi.detail(id).then(setRide).catch(() => setError('Ride not found.'));
-  }, [id]);
+  const load = () => ridesApi.detail(id).then(setRide).catch((e) => setError(e.message));
+  useEffect(() => { load(); }, [id]);
 
-  const isDriver = ride?.driverId === user?.id;
+  if (error && !ride) return <ErrorBanner message={error} />;
+  if (!ride) return <Loader />;
 
-  const action = async (fn, label) => {
-    setBusy(label);
-    try { setRide(await fn()); }
-    catch (err) { setError(err.message); }
-    finally { setBusy(''); }
+  const isDriver = ride.driverId === user.id;
+  const isPassenger = (ride.passengerIds || []).includes(user.id);
+
+  const requestJoin = async () => {
+    setBusy(true); setError('');
+    try {
+      await requestsApi.create({ rideId: ride.id, message: '' });
+      notify('Request sent. The driver will review it.', 'signal');
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
 
-  const requestJoin = () => action(() => requestsApi.create({ rideId: id }).then(() => ridesApi.detail(id)), 'join');
-  const cancel = () => action(() => ridesApi.cancel(id), 'cancel');
-  const complete = () => action(() => ridesApi.complete(id), 'complete');
+  const cancel = async () => {
+    setBusy(true);
+    try { await ridesApi.cancel(ride.id); await load(); notify('Ride cancelled.'); }
+    catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
 
-  if (!ride && !error) return <Loader />;
+  const complete = async () => {
+    setBusy(true);
+    try { await ridesApi.complete(ride.id); await load(); notify('Ride marked complete.'); }
+    catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
 
   return (
-    <div className="stack" style={{ maxWidth: 640 }}>
-      <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => navigate(-1)}>← Back</button>
-      <ErrorBanner message={error} />
-      {ride && (
-        <div className="card">
-          <div className="spread" style={{ marginBottom: 16 }}>
-            <Badge status={ride.status} />
-            <span className="badge badge-seats">{ride.seatsAvailable} seats left</span>
-          </div>
-
-          <div className="ride-route" style={{ fontSize: '1.1rem', marginBottom: 20 }}>
-            <span className="dot from" /><span>{ride.origin}</span>
-            <span className="connector" />
-            <span className="dot to" /><span>{ride.destination}</span>
-          </div>
-
-          <div className="ride-meta" style={{ marginBottom: 20 }}>
-            <span><IconCalendar width={15} /> {ride.date}</span>
-            <span><IconClock width={15} /> {ride.timeStart}–{ride.timeEnd}</span>
-            <span><IconUser width={15} /> {ride.driverName}</span>
-          </div>
-
-          {ride.notes && <p className="muted" style={{ marginBottom: 20 }}>{ride.notes}</p>}
-
-          {ride.passengerNames?.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <p className="muted" style={{ marginBottom: 8 }}>Passengers</p>
-              {ride.passengerNames.map((p) => (
-                <span key={p.id} className="badge" style={{ marginRight: 6 }}>{p.name}</span>
-              ))}
-            </div>
-          )}
-
-          <div className="row">
-            {!isDriver && ride.status === 'open' && (
-              <button className="btn btn-primary" disabled={!!busy} onClick={requestJoin}>
-                {busy === 'join' ? 'Requesting…' : 'Request to join'}
-              </button>
-            )}
-            {isDriver && ride.status === 'open' && (
-              <>
-                <button className="btn btn-ghost" disabled={!!busy} onClick={cancel}>{busy === 'cancel' ? 'Cancelling…' : 'Cancel ride'}</button>
-                <button className="btn btn-primary" disabled={!!busy} onClick={complete}>{busy === 'complete' ? 'Completing…' : 'Mark complete'}</button>
-              </>
-            )}
-          </div>
+    <div className="stack" style={{ maxWidth: 720 }}>
+      <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>← Back</button>
+      <div className="card">
+        <div className="spread" style={{ marginBottom: 14 }}>
+          <span className="badge badge-seats">{ride.seatsAvailable} of {ride.seatsTotal} seats free</span>
+          <Badge status={ride.status} />
         </div>
-      )}
+        <div className="ride-route" style={{ fontSize: '1.3rem' }}>
+          <span className="dot from" /><span>{ride.origin}</span>
+          <span className="connector" /><span className="dot to" /><span>{ride.destination}</span>
+        </div>
+        <div className="ride-meta" style={{ marginTop: 16 }}>
+          <span><IconCalendar width={16} /> {ride.date}</span>
+          <span><IconClock width={16} /> {ride.timeStart}–{ride.timeEnd}</span>
+          <span><IconUser width={16} /> Driver: {ride.driverName}</span>
+        </div>
+        {ride.notes ? <p style={{ marginTop: 14 }}>{ride.notes}</p> : null}
+        <hr className="route-line" />
+        <ErrorBanner message={error} />
+
+        <div className="row">
+          {isDriver ? (
+            <>
+              {ride.status !== 'cancelled' && ride.status !== 'completed' && (
+                <>
+                  <button className="btn btn-primary" onClick={complete} disabled={busy}>Mark complete</button>
+                  <button className="btn btn-danger" onClick={cancel} disabled={busy}>Cancel ride</button>
+                </>
+              )}
+              <Link to="/my-rides" className="btn btn-ghost">Manage requests</Link>
+            </>
+          ) : isPassenger ? (
+            <Link to={`/messages?ride=${ride.id}&with=${ride.driverId}`} className="btn btn-primary"><IconChat width={16} /> Message driver</Link>
+          ) : ride.status === 'open' ? (
+            <button className="btn btn-signal" onClick={requestJoin} disabled={busy}>{busy ? 'Sending…' : 'Request a seat'}</button>
+          ) : (
+            <span className="muted">This ride is not accepting new passengers.</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

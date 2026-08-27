@@ -1,16 +1,27 @@
 import { Notifications } from '../models/datastore.js';
 
+/**
+ * Create a notification for a user.
+ * @param {string} userId - The recipient user's ID
+ * @param {Object} payload - { type, rideId, message }
+ */
 export async function createNotification(userId, { type, rideId, message }) {
-  return Notifications().create({ userId, type, rideId: rideId || null, message, read: false });
+  return Notifications().create({
+    userId,
+    type,
+    rideId,
+    message,
+    read: false,
+  });
 }
 
 export async function listNotifications(userId) {
-  const items = await Notifications().query((n) => n.userId === userId);
-  return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const all = await Notifications().query((n) => n.userId === userId);
+  return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function markRead(notificationId, userId) {
-  const n = await Notifications().getById(notificationId);
-  if (!n || n.userId !== userId) return null;
+  const notification = await Notifications().getById(notificationId);
+  if (!notification || notification.userId !== userId) return null;
   return Notifications().update(notificationId, { read: true });
 }

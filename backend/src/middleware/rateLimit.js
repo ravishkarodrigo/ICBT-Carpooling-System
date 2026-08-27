@@ -1,24 +1,17 @@
 import rateLimit from 'express-rate-limit';
 
-/**
- * Strict limiter applied to authentication endpoints to mitigate
- * brute-force and credential-stuffing attacks.
- */
+// Tighter limit on auth endpoints to slow credential-stuffing / brute force.
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, error: 'Too many requests, please try again later.' },
+  message: { success: false, error: { message: 'Too many attempts, try again later' } },
 });
 
-/**
- * General API limiter applied globally.
- */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, error: 'Too many requests, please try again later.' },
 });

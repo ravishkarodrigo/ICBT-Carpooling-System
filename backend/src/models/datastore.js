@@ -1,116 +1,82 @@
-import { randomUUID } from 'crypto';
-import { config } from '../config/env.js';
-import { initFirestore } from '../config/firebase.js';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
- * A tiny repository abstraction that exposes the same CRUD surface for both
- * Firestore and an in-memory Map. This keeps controllers/services free of
- * vendor-specific code and makes the whole API testable without credentials.
+ * Simple in-memory datastore.
+ * Supports create, getById, findOne, query, update, and delete.
+ * Each collection is a Map<id, record>.
  */
 
-// ---------- In-memory implementation ----------
-class InMemoryCollection {
-  constructor() {
-    this.docs = new Map();
-  }
+function createCollection() {
+  const store = new Map();
 
-  async create(data) {
-    const id = data.id || randomUUID();
-    const record = { ...data, id, createdAt: data.createdAt || new Date().toISOString() };
-    this.docs.set(id, record);
-    return record;
-  }
+  return {
+    async create(data) {
+      const id = uuidv4();
+      const record = { id, ...data, createdAt: new Date().toISOString() };
+      store.set(id, record);
+      return record;
+    },
 
-  async getById(id) {
-    return this.docs.get(id) || null;
-  }
+    async getById(id) {
+      return store.get(id) || null;
+    },
 
-  async update(id, patch) {
-    const existing = this.docs.get(id);
-    if (!existing) return null;
-    const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
-    this.docs.set(id, updated);
-    return updated;
-  }
+    async findOne(predicate) {
+      for (const record of store.values()) {
+        if (predicate(record)) return record;
+      }
+      return null;
+    },
 
-  async remove(id) {
-    return this.docs.delete(id);
-  }
+    async query(predicate) {
+      const results = [];
+      for (const record of store.values()) {
+        if (predicate(record)) results.push(record);
+      }
+      return results;
+    },
 
-  async query(predicate = () => true) {
-    return [...this.docs.values()].filter(predicate);
-  }
+    async update(id, patch) {
+      const existing = store.get(id);
+      if (!existing) return null;
+      const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+      store.set(id, updated);
+      return updated;
+    },
 
-  async findOne(predicate) {
-    return [...this.docs.values()].find(predicate) || null;
-  }
+    async delete(id) {
+      return store.delete(id);
+    },
+
+    async clear() {
+      store.clear();
+    },
+
+    size() {
+      return store.size;
+    },
+  };
 }
 
-// ---------- Firestore implementation ----------
-class FirestoreCollection {
-  constructor(db, name) {
-    this.col = db.collection(name);
-  }
+// Singleton collections — reset between test runs via reset()
+const collections = {
+  users: createCollection(),
+  rides: createCollection(),
+  rideRequests: createCollection(),
+  notifications: createCollection(),
+  messages: createCollection(),
+};
 
-  async create(data) {
-    const id = data.id || this.col.doc().id;
-    const record = { ...data, id, createdAt: data.createdAt || new Date().toISOString() };
-    await this.col.doc(id).set(record);
-    return record;
-  }
+// Accessor functions (match import style in service files)
+export const Users = () => collections.users;
+export const Rides = () => collections.rides;
+export const RideRequests = () => collections.rideRequests;
+export const Notifications = () => collections.notifications;
+export const Messages = () => collections.messages;
 
-  async getById(id) {
-    const snap = await this.col.doc(id).get();
-    return snap.exists ? snap.data() : null;
-  }
-
-  async update(id, patch) {
-    const ref = this.col.doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) return null;
-    const updated = { ...snap.data(), ...patch, updatedAt: new Date().toISOString() };
-    await ref.set(updated);
-    return updated;
-  }
-
-  async remove(id) {
-    await this.col.doc(id).delete();
-    return true;
-  }
-
-  async query(predicate = () => true) {
-    const snap = await this.col.get();
-    return snap.docs.map((d) => d.data()).filter(predicate);
-  }
-
-  async findOne(predicate) {
-    const all = await this.query(predicate);
-    return all[0] || null;
-  }
-}
-
-// ---------- Factory ----------
-const collections = {};
-
-export function getCollection(name) {
-  if (collections[name]) return collections[name];
-
-  const db = initFirestore();
-  collections[name] =
-    config.useInMemoryDb || !db
-      ? new InMemoryCollection()
-      : new FirestoreCollection(db, name);
-  return collections[name];
-}
-
-// Convenience named accessors used across the app.
-export const Users = () => getCollection('users');
-export const Rides = () => getCollection('rides');
-export const RideRequests = () => getCollection('rideRequests');
-export const Messages = () => getCollection('messages');
-export const Notifications = () => getCollection('notifications');
-
-// Test helper: wipe all in-memory collections between test cases.
-export function __resetInMemory() {
-  Object.keys(collections).forEach((k) => delete collections[k]);
+/**
+ * Wipe all collections. Call in test beforeEach to get a clean slate.
+ */
+export async function resetDatastore() {
+  await Promise.all(Object.values(collections).map((c) => c.clear()));
 }

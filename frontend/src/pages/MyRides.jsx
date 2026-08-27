@@ -1,77 +1,75 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ridesApi, requestsApi } from '../services/api.js';
+import { useToast } from '../context/ToastContext.jsx';
+import RideCard from '../components/RideCard.jsx';
 import Loader from '../components/Loader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
-import RideCard from '../components/RideCard.jsx';
-import ErrorBanner from '../components/ErrorBanner.jsx';
 
 export default function MyRides() {
-  const [data, setData] = useState(null);
+  const { notify } = useToast();
+  const [mine, setMine] = useState(null);
   const [incoming, setIncoming] = useState([]);
-  const [error, setError] = useState('');
-  const [deciding, setDeciding] = useState('');
 
-  const load = () => {
-    ridesApi.mine().then(setData).catch(() => setError('Failed to load your rides.'));
-    requestsApi.incoming().then(setIncoming).catch(() => {});
-  };
+  const load = () =>
+    Promise.all([ridesApi.mine(), requestsApi.incoming()])
+      .then(([m, inc]) => { setMine(m); setIncoming(inc); })
+      .catch(() => { setMine({ driving: [], riding: [] }); setIncoming([]); });
 
-  useEffect(load, []);
+  useEffect(() => { load(); }, []);
+  if (!mine) return <Loader />;
 
-  const decide = async (requestId, decision) => {
-    setDeciding(requestId + decision);
+  const pending = incoming.filter((r) => r.status === 'pending');
+
+  const decide = async (id, decision) => {
     try {
-      await requestsApi.decide(requestId, decision);
+      await requestsApi.decide(id, decision);
+      notify(`Request ${decision}.`, decision === 'accepted' ? 'signal' : 'route');
       load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setDeciding('');
-    }
+    } catch (e) { notify(e.message); }
   };
-
-  if (!data) return <Loader />;
 
   return (
     <div className="stack">
       <h1>My rides</h1>
-      <ErrorBanner message={error} />
-
-      {incoming.filter((r) => r.status === 'pending').length > 0 && (
-        <section>
-          <h2>Incoming requests</h2>
-          {incoming.filter((r) => r.status === 'pending').map((req) => (
-            <div key={req.id} className="card" style={{ marginBottom: 12 }}>
-              <p><strong>{req.passengerId}</strong> wants to join ride <code>{req.rideId}</code></p>
-              {req.message && <p className="muted">{req.message}</p>}
-              <div className="row" style={{ marginTop: 8 }}>
-                <button className="btn btn-primary btn-sm" disabled={!!deciding} onClick={() => decide(req.id, 'accepted')}>
-                  {deciding === req.id + 'accepted' ? '…' : 'Accept'}
-                </button>
-                <button className="btn btn-ghost btn-sm" disabled={!!deciding} onClick={() => decide(req.id, 'rejected')}>
-                  {deciding === req.id + 'rejected' ? '…' : 'Reject'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
 
       <section>
-        <h2>Rides I'm driving</h2>
-        {data.driving.length === 0 ? (
-          <EmptyState title="No rides offered yet" message="Head to 'Offer a ride' to get started." />
+        <div className="section-head"><h2>Requests to review</h2></div>
+        {pending.length === 0 ? (
+          <EmptyState title="No pending requests" message="When someone asks to join your ride, it shows up here." />
         ) : (
-          <div className="grid grid-cards">{data.driving.map((r) => <RideCard key={r.id} ride={r} />)}</div>
+          <div className="stack">
+            {pending.map((r) => (
+              <div key={r.id} className="card spread">
+                <div>
+                  <strong>New request</strong>
+                  <div className="muted" style={{ fontSize: '0.88rem' }}>{r.message || 'No message'}</div>
+                </div>
+                <div className="row">
+                  <button className="btn btn-primary btn-sm" onClick={() => decide(r.id, 'accepted')}>Accept</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => decide(r.id, 'rejected')}>Decline</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
       <section>
-        <h2>Rides I'm riding</h2>
-        {data.riding.length === 0 ? (
-          <EmptyState title="Not joined any rides yet" message="Find a ride and request to join." />
+        <div className="section-head"><h2>Rides you're driving</h2><Link to="/rides/new">Offer another</Link></div>
+        {mine.driving.length === 0 ? (
+          <EmptyState title="You're not driving any rides" message="Offer your empty seats and help someone commute." action={<Link to="/rides/new" className="btn btn-primary">Offer a ride</Link>} />
         ) : (
-          <div className="grid grid-cards">{data.riding.map((r) => <RideCard key={r.id} ride={r} />)}</div>
+          <div className="grid grid-cards">{mine.driving.map((r) => <RideCard key={r.id} ride={r} />)}</div>
+        )}
+      </section>
+
+      <section>
+        <div className="section-head"><h2>Rides you're taking</h2></div>
+        {mine.riding.length === 0 ? (
+          <EmptyState title="No booked rides" message="Find a ride heading your way." action={<Link to="/rides" className="btn btn-ghost">Find a ride</Link>} />
+        ) : (
+          <div className="grid grid-cards">{mine.riding.map((r) => <RideCard key={r.id} ride={r} />)}</div>
         )}
       </section>
     </div>

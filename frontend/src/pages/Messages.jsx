@@ -1,62 +1,101 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { messagesApi } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { getSocket } from '../services/socket.js';
 import Loader from '../components/Loader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 
 export default function Messages() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const rideId = searchParams.get('ride');
+  const withUserId = searchParams.get('with');
+
   const [messages, setMessages] = useState(null);
-  const [text, setText] = useState('');
-  // For demo, use a fixed rideId from query param or a placeholder
-  const rideId = new URLSearchParams(window.location.search).get('rideId') || '';
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const bottomRef = useRef(null);
+
+  const load = () => {
+    if (!rideId || !withUserId) { setMessages([]); return; }
+    messagesApi.conversation(rideId, withUserId).then(setMessages).catch(() => setMessages([]));
+  };
+
+  useEffect(() => { load(); }, [rideId, withUserId]);
 
   useEffect(() => {
-    if (!rideId) { setMessages([]); return; }
-    messagesApi.conversation(rideId, user.id).then(setMessages).catch(() => setMessages([]));
-
-    const socket = getSocket();
-    if (socket) {
-      socket.emit('join:ride', rideId);
-      const handler = (msg) => setMessages((m) => [...(m || []), msg]);
-      socket.on('chat:message', handler);
-      return () => socket.off('chat:message', handler);
-    }
-  }, [rideId, user.id]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const send = async (e) => {
     e.preventDefault();
-    if (!text.trim() || !rideId) return;
+    if (!body.trim()) return;
+    setBusy(true);
     try {
-      await messagesApi.send({ rideId, text });
-      setText('');
-    } catch { /* ignore */ }
+      await messagesApi.send({ rideId, toUserId: withUserId, body: body.trim() });
+      setBody('');
+      load();
+    } finally {
+      setBusy(false);
+    }
   };
 
-  if (!rideId) return (
-    <div className="stack">
-      <h1>Messages</h1>
-      <EmptyState title="No conversation selected" message="Open a ride and tap 'Message driver' to start chatting." />
-    </div>
-  );
+  if (!rideId || !withUserId) {
+    return (
+      <div className="stack">
+        <h1>Messages</h1>
+        <EmptyState
+          title="No conversation selected"
+          message="Open a ride and tap 'Message driver' to start a conversation."
+        />
+      </div>
+    );
+  }
+
+  if (!messages) return <Loader />;
 
   return (
     <div className="stack" style={{ maxWidth: 640 }}>
-      <h1>Ride chat</h1>
-      <div className="card" style={{ minHeight: 300, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {messages === null ? <Loader /> : messages.length === 0 ? (
-          <EmptyState title="No messages yet" message="Start the conversation below." />
-        ) : messages.map((m) => (
-          <div key={m.id} className={`chat-bubble ${m.senderId === user.id ? 'mine' : 'theirs'}`}>
-            <p>{m.text}</p>
-            <span className="muted" style={{ fontSize: '0.75rem' }}>{new Date(m.sentAt).toLocaleTimeString()}</span>
-          </div>
-        ))}
+      <h1>Messages</h1>
+      <div
+        className="card"
+        style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 300, maxHeight: 420, overflowY: 'auto', padding: 16 }}
+      >
+        {messages.length === 0 ? (
+          <EmptyState title="No messages yet" message="Send the first message below." />
+        ) : (
+          messages.map((m) => {
+            const mine = m.fromUserId === user.id;
+            return (
+              <div
+                key={m.id}
+                style={{
+                  alignSelf: mine ? 'flex-end' : 'flex-start',
+                  background: mine ? '#2563eb' : '#f1f5f9',
+                  color: mine ? '#fff' : 'inherit',
+                  padding: '8px 14px',
+                  borderRadius: 14,
+                  maxWidth: '75%',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {m.body}
+              </div>
+            );
+          })
+        )}
+        <div ref={bottomRef} />
       </div>
-      <form className="row" onSubmit={send}>
-        <input className="input" style={{ flex: 1 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a message…" />
-        <button className="btn btn-primary" disabled={!text.trim()}>Send</button>
+      <form onSubmit={send} style={{ display: 'flex', gap: 10 }}>
+        <input
+          className="input"
+          style={{ flex: 1 }}
+          placeholder="Type a message…"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          disabled={busy}
+        />
+        <button className="btn btn-primary" disabled={busy || !body.trim()}>Send</button>
       </form>
     </div>
   );
