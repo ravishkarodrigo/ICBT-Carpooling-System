@@ -1,92 +1,143 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ridesApi, requestsApi } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import Loader from '../components/Loader.jsx';
-import Badge from '../components/Badge.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
-import { IconCalendar, IconClock, IconUser, IconChat } from '../components/Icons.jsx';
+import Badge from '../components/Badge.jsx';
+import { IconCalendar, IconClock, IconUser, IconRoute } from '../components/Icons.jsx';
 
 export default function RideDetails() {
   const { id } = useParams();
-  const { user } = useAuth();
-  const { notify } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const toast = useToast();
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [ride, setRide] = useState(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [requestMsg, setRequestMsg] = useState('');
+  const [reqLoading, setReqLoading] = useState(false);
 
-  const load = () => ridesApi.detail(id).then(setRide).catch((e) => setError(e.message));
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    ridesApi.detail(id)
+      .then(setRide)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [id]);
 
-  if (error && !ride) return <ErrorBanner message={error} />;
-  if (!ride) return <Loader />;
-
-  const isDriver = ride.driverId === user.id;
-  const isPassenger = (ride.passengerIds || []).includes(user.id);
-
-  const requestJoin = async () => {
-    setBusy(true); setError('');
+  const onJoin = async () => {
+    setReqLoading(true);
+    setError(null);
     try {
-      await requestsApi.create({ rideId: ride.id, message: '' });
-      notify('Request sent. The driver will review it.', 'signal');
-    } catch (e) { setError(e.message); } finally { setBusy(false); }
+      await requestsApi.create({ rideId: ride.id, message: requestMsg });
+      toast.success('Join request sent to the driver');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setReqLoading(false);
+    }
   };
 
-  const cancel = async () => {
-    setBusy(true);
-    try { await ridesApi.cancel(ride.id); await load(); notify('Ride cancelled.'); }
-    catch (e) { setError(e.message); } finally { setBusy(false); }
+  const onCancel = async () => {
+    if (!window.confirm('Are you sure you want to cancel this ride?')) return;
+    try {
+      await ridesApi.cancel(ride.id);
+      toast.success('Ride cancelled');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
-  const complete = async () => {
-    setBusy(true);
-    try { await ridesApi.complete(ride.id); await load(); notify('Ride marked complete.'); }
-    catch (e) { setError(e.message); } finally { setBusy(false); }
-  };
+  if (loading) return <Loader />;
+  if (!ride) return <div className="stack"><ErrorBanner message={error || 'Ride not found'} /></div>;
+
+  const isDriver = user?.id === ride.driverId;
+  const isPassenger = ride.passengerIds?.includes(user?.id);
 
   return (
-    <div className="stack" style={{ maxWidth: 720 }}>
-      <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}>← Back</button>
-      <div className="card">
-        <div className="spread" style={{ marginBottom: 14 }}>
-          <span className="badge badge-seats">{ride.seatsAvailable} of {ride.seatsTotal} seats free</span>
-          <Badge status={ride.status} />
-        </div>
-        <div className="ride-route" style={{ fontSize: '1.3rem' }}>
-          <span className="dot from" /><span>{ride.origin}</span>
-          <span className="connector" /><span className="dot to" /><span>{ride.destination}</span>
-        </div>
-        <div className="ride-meta" style={{ marginTop: 16 }}>
-          <span><IconCalendar width={16} /> {ride.date}</span>
-          <span><IconClock width={16} /> {ride.timeStart}–{ride.timeEnd}</span>
-          <span><IconUser width={16} /> Driver: {ride.driverName}</span>
-        </div>
-        {ride.notes ? <p style={{ marginTop: 14 }}>{ride.notes}</p> : null}
-        <hr className="route-line" />
-        <ErrorBanner message={error} />
-
-        <div className="row">
-          {isDriver ? (
-            <>
-              {ride.status !== 'cancelled' && ride.status !== 'completed' && (
-                <>
-                  <button className="btn btn-primary" onClick={complete} disabled={busy}>Mark complete</button>
-                  <button className="btn btn-danger" onClick={cancel} disabled={busy}>Cancel ride</button>
-                </>
-              )}
-              <Link to="/my-rides" className="btn btn-ghost">Manage requests</Link>
-            </>
-          ) : isPassenger ? (
-            <Link to={`/messages?ride=${ride.id}&with=${ride.driverId}`} className="btn btn-primary"><IconChat width={16} /> Message driver</Link>
-          ) : ride.status === 'open' ? (
-            <button className="btn btn-signal" onClick={requestJoin} disabled={busy}>{busy ? 'Sending…' : 'Request a seat'}</button>
-          ) : (
-            <span className="muted">This ride is not accepting new passengers.</span>
-          )}
-        </div>
+    <div className="stack" style={{ maxWidth: 700, margin: '0 auto' }}>
+      <div className="spread">
+        <h1>Ride Details</h1>
+        <Badge status={ride.status} />
       </div>
+      
+      <ErrorBanner message={error} />
+
+      <div className="card stack">
+        <div className="ride-route" style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>
+          <span className="dot from" style={{ width: 14, height: 14 }} />
+          <span>{ride.origin}</span>
+          <span className="connector" />
+          <span className="dot to" style={{ width: 14, height: 14 }} />
+          <span>{ride.destination}</span>
+        </div>
+
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+          <div>
+            <div className="muted" style={{ marginBottom: 4 }}>Date & Time</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <IconCalendar /> {ride.date}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+              <IconClock /> {ride.timeStart} – {ride.timeEnd}
+            </div>
+          </div>
+          <div>
+            <div className="muted" style={{ marginBottom: 4 }}>Driver</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <IconUser /> {ride.driverName}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="muted" style={{ marginBottom: 4 }}>Seats</div>
+          <div>{ride.seatsAvailable} of {ride.seatsTotal} available</div>
+        </div>
+
+        {ride.notes && (
+          <div>
+            <div className="muted" style={{ marginBottom: 4 }}>Notes</div>
+            <p>{ride.notes}</p>
+          </div>
+        )}
+      </div>
+
+      {isDriver && ride.status === 'open' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+          <button className="btn btn-danger" onClick={onCancel}>Cancel Ride</button>
+        </div>
+      )}
+
+      {!isDriver && !isPassenger && ride.status === 'open' && (
+        <div className="card">
+          <h3 style={{ marginBottom: '1rem' }}>Request to Join</h3>
+          <div className="field">
+            <textarea 
+              className="input" 
+              placeholder="Send a message to the driver (optional)" 
+              value={requestMsg} 
+              onChange={e => setRequestMsg(e.target.value)} 
+              rows="2"
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn btn-primary" onClick={onJoin} disabled={reqLoading || ride.seatsAvailable === 0}>
+              {reqLoading ? 'Sending...' : 'Request Seat'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isPassenger && (
+        <div className="success-banner">
+          You are a confirmed passenger for this ride.
+        </div>
+      )}
     </div>
   );
 }

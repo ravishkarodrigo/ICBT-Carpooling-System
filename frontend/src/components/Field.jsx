@@ -1,21 +1,18 @@
-// Reusable labelled input with inline error support.
-export function TextField({ label, error, as = 'input', options, ...props }) {
-  const cls = `${as === 'textarea' ? 'textarea' : as === 'select' ? 'select' : 'input'}${error ? ' error' : ''}`;
+export function Field({ label, name, type = 'text', as, options, value, onChange, error, placeholder, required }) {
+  const id = `field-${name}`;
   return (
     <div className="field">
-      {label && <label htmlFor={props.id || props.name}>{label}</label>}
-      {as === 'textarea' ? (
-        <textarea className={cls} rows={3} {...props} />
-      ) : as === 'select' ? (
-        <select className={cls} {...props}>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
+      <label htmlFor={id} className="field-label">{label}{required && <span className="req"> *</span>}</label>
+      {as === 'select' ? (
+        <select id={id} name={name} value={value} onChange={onChange} className={`input ${error ? 'input-error' : ''}`}>
+          {options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       ) : (
-        <input className={cls} {...props} />
+        <input id={id} name={name} type={type} value={value} onChange={onChange}
+          placeholder={placeholder} required={required}
+          className={`input ${error ? 'input-error' : ''}`} />
       )}
-      {error && <span className="field-error">{error}</span>}
+      {error && <p className="field-error">{error}</p>}
     </div>
   );
 }

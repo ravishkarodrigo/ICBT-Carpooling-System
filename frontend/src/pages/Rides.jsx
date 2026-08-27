@@ -1,69 +1,56 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { ridesApi } from '../services/api.js';
-import RideCard from '../components/RideCard.jsx';
 import Loader from '../components/Loader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import RideCard from '../components/RideCard.jsx';
+import { Field } from '../components/Field.jsx';
+import { IconSearch } from '../components/Icons.jsx';
 
 export default function Rides() {
-  const [rides, setRides] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [rides, setRides] = useState([]);
   const [search, setSearch] = useState({ origin: '', destination: '', date: '' });
-  const [filtered, setFiltered] = useState(null);
 
-  useEffect(() => {
-    ridesApi.list().then((r) => { setRides(r); setFiltered(r); }).catch(() => { setRides([]); setFiltered([]); });
-  }, []);
-
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    const params = Object.fromEntries(Object.entries(search).filter(([, v]) => v));
-    if (!Object.keys(params).length) {
-      setFiltered(rides);
-      return;
-    }
+  const fetchRides = async (query = {}) => {
+    setLoading(true);
     try {
-      const results = await ridesApi.search(params);
-      setFiltered(results);
-    } catch {
-      setFiltered([]);
+      const data = await ridesApi.search(query);
+      setRides(data);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!rides) return <Loader />;
+  useEffect(() => { fetchRides(); }, []);
+
+  const onSearch = (e) => {
+    e.preventDefault();
+    const q = Object.fromEntries(Object.entries(search).filter(([, v]) => !!v));
+    fetchRides(q);
+  };
 
   return (
     <div className="stack">
-      <div className="section-head">
+      <div className="spread">
         <h1>Find a ride</h1>
-        <Link to="/rides/new" className="btn btn-primary">Offer a ride</Link>
       </div>
 
-      {/* Search bar */}
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>From</label>
-          <input className="input" placeholder="e.g. Maharagama" value={search.origin} onChange={(e) => setSearch({ ...search, origin: e.target.value })} />
-        </div>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>To</label>
-          <input className="input" placeholder="e.g. Colombo 03" value={search.destination} onChange={(e) => setSearch({ ...search, destination: e.target.value })} />
-        </div>
-        <div style={{ minWidth: 140 }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: 4 }}>Date</label>
-          <input className="input" type="date" value={search.date} onChange={(e) => setSearch({ ...search, date: e.target.value })} />
-        </div>
-        <button className="btn btn-primary" type="submit">Search</button>
-        {(search.origin || search.destination || search.date) && (
-          <button type="button" className="btn btn-ghost" onClick={() => { setSearch({ origin: '', destination: '', date: '' }); setFiltered(rides); }}>Clear</button>
-        )}
-      </form>
+      <div className="card">
+        <form onSubmit={onSearch} className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', alignItems: 'flex-end' }}>
+          <Field label="Origin" name="origin" value={search.origin} onChange={(e) => setSearch({ ...search, origin: e.target.value })} placeholder="e.g. Nugegoda" />
+          <Field label="Destination" name="destination" value={search.destination} onChange={(e) => setSearch({ ...search, destination: e.target.value })} placeholder="e.g. ICBT" />
+          <Field label="Date" name="date" type="date" value={search.date} onChange={(e) => setSearch({ ...search, date: e.target.value })} />
+          <div style={{ marginBottom: '1rem' }}>
+            <button type="submit" className="btn btn-primary btn-block"><IconSearch /> Search</button>
+          </div>
+        </form>
+      </div>
 
-      {/* Results */}
-      {!filtered || filtered.length === 0 ? (
-        <EmptyState title="No rides found" message="Try adjusting your search or offer a ride yourself." />
+      {loading ? <Loader /> : rides.length === 0 ? (
+        <EmptyState title="No rides found" message="Try adjusting your search criteria." />
       ) : (
         <div className="grid grid-cards">
-          {filtered.map((r) => <RideCard key={r.id} ride={r} />)}
+          {rides.map(r => <RideCard key={r.id} ride={r} />)}
         </div>
       )}
     </div>

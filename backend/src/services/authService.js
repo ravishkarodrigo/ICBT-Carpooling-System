@@ -1,61 +1,52 @@
 import { Users } from '../models/datastore.js';
+import { ApiError } from '../utils/apiError.js';
 import { hashPassword, verifyPassword } from '../utils/password.js';
 import { signAccessToken, signRefreshToken } from '../utils/tokens.js';
-import { ApiError } from '../utils/apiError.js';
-
-const publicUser = (u) => ({
-  id: u.id,
-  name: u.name,
-  email: u.email,
-  role: u.role,
-  phone: u.phone || '',
-  homeArea: u.homeArea || '',
-  createdAt: u.createdAt,
-});
 
 export async function register({ name, email, password, role }) {
-  const existing = await Users().findOne((u) => u.email === email.toLowerCase());
+  const existing = await Users().findOne((u) => u.email === email);
   if (existing) throw ApiError.conflict('An account with this email already exists');
 
-  const passwordHash = await hashPassword(password);
-  const user = await Users().create({
-    name,
-    email: email.toLowerCase(),
-    passwordHash,
-    role,
-  });
+  const hashed = await hashPassword(password);
+  const user = await Users().create({ name, email, password: hashed, role });
 
-  return issueTokens(user);
+  const { password: _, ...safe } = user;
+  return {
+    user: safe,
+    accessToken: signAccessToken({ id: user.id, role: user.role }),
+    refreshToken: signRefreshToken({ id: user.id, role: user.role }),
+  };
 }
 
 export async function login({ email, password }) {
-  const user = await Users().findOne((u) => u.email === email.toLowerCase());
-  // Constant-ish message: never reveal whether the email exists.
+  const user = await Users().findOne((u) => u.email === email);
   if (!user) throw ApiError.unauthorized('Invalid email or password');
 
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) throw ApiError.unauthorized('Invalid email or password');
+  const ok = await verifyPassword(password, user.password);
+  if (!ok) throw ApiError.unauthorized('Invalid email or password');
 
-  return issueTokens(user);
+  const { password: _, ...safe } = user;
+  return {
+    user: safe,
+    accessToken: signAccessToken({ id: user.id, role: user.role }),
+    refreshToken: signRefreshToken({ id: user.id, role: user.role }),
+  };
 }
 
 export async function getProfile(userId) {
   const user = await Users().getById(userId);
   if (!user) throw ApiError.notFound('User not found');
-  return publicUser(user);
+  const { password: _, ...safe } = user;
+  return safe;
 }
 
 export async function updateProfile(userId, patch) {
-  const updated = await Users().update(userId, patch);
+  const allowed = ['name', 'phone', 'homeArea'];
+  const update = Object.fromEntries(
+    Object.entries(patch).filter(([k]) => allowed.includes(k))
+  );
+  const updated = await Users().update(userId, update);
   if (!updated) throw ApiError.notFound('User not found');
-  return publicUser(updated);
-}
-
-function issueTokens(user) {
-  const claims = { id: user.id, role: user.role, name: user.name };
-  return {
-    user: publicUser(user),
-    accessToken: signAccessToken(claims),
-    refreshToken: signRefreshToken(claims),
-  };
+  const { password: _, ...safe } = updated;
+  return safe;
 }

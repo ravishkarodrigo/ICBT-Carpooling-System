@@ -6,6 +6,6 @@ import { messageSchema } from '../validation/schemas.js';
 
 const router = Router();
 router.use(requireAuth);
-router.get('/:rideId/:otherUserId', ctrl.getConversation);
 router.post('/', validate(messageSchema), ctrl.send);
+router.get('/:rideId/:otherUserId', ctrl.conversation);
 export default router;

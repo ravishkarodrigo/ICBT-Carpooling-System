@@ -2,43 +2,45 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { authApi } from '../services/api.js';
 import { useToast } from '../context/ToastContext.jsx';
-import { TextField } from '../components/Field.jsx';
+import { Field } from '../components/Field.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
-  const { notify } = useToast();
-  const [form, setForm] = useState({ name: user.name, phone: user.phone || '', homeArea: user.homeArea || '' });
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const onSubmit = async (e) => {
-    e.preventDefault(); setError(''); setBusy(true);
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const data = Object.fromEntries(new FormData(e.target));
     try {
-      const updated = await authApi.updateProfile(form);
+      const updated = await authApi.updateProfile(data);
       updateUser(updated);
-      notify('Profile updated.', 'signal');
-    } catch (err) { setError(err.message); } finally { setBusy(false); }
+      toast.success('Profile updated successfully');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="stack" style={{ maxWidth: 560 }}>
-      <h1>Your profile</h1>
+    <div className="stack" style={{ maxWidth: 600 }}>
+      <h1>My Profile</h1>
       <div className="card">
-        <div className="spread" style={{ marginBottom: 16 }}>
-          <div>
-            <strong style={{ fontFamily: 'var(--font-display)' }}>{user.email}</strong>
-            <div className="muted" style={{ textTransform: 'capitalize' }}>{user.role}</div>
+        <ErrorBanner message={error} />
+        <form onSubmit={onSubmit} className="stack">
+          <Field label="Full Name" name="name" defaultValue={user?.name} required />
+          <Field label="Phone Number" name="phone" defaultValue={user?.phone || ''} />
+          <Field label="Home Area" name="homeArea" defaultValue={user?.homeArea || ''} />
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Saving...' : 'Save Profile'}
+            </button>
           </div>
-        </div>
-        <form onSubmit={onSubmit}>
-          <ErrorBanner message={error} />
-          <TextField label="Full name" name="name" value={form.name} onChange={onChange} />
-          <TextField label="Phone (shared only with confirmed ride partners)" name="phone" value={form.phone} onChange={onChange} placeholder="Optional" />
-          <TextField label="Home area" name="homeArea" value={form.homeArea} onChange={onChange} placeholder="e.g. Maharagama" />
-          <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
         </form>
       </div>
     </div>

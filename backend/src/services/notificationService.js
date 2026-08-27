@@ -1,18 +1,7 @@
 import { Notifications } from '../models/datastore.js';
 
-/**
- * Create a notification for a user.
- * @param {string} userId - The recipient user's ID
- * @param {Object} payload - { type, rideId, message }
- */
 export async function createNotification(userId, { type, rideId, message }) {
-  return Notifications().create({
-    userId,
-    type,
-    rideId,
-    message,
-    read: false,
-  });
+  return Notifications().create({ userId, type, rideId, message, read: false });
 }
 
 export async function listNotifications(userId) {

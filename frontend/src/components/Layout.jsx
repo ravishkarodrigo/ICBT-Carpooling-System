@@ -1,92 +1,65 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { IconRoute, IconCar, IconBell, IconChat, IconLogout, IconUser, IconPlus } from './Icons.jsx';
+import { notificationsApi } from '../services/api.js';
+import { getSocket } from '../services/socket.js';
+import { IconHome, IconSearch, IconPlus, IconCar, IconChat, IconUser, IconHistory, IconBell, IconMenu, IconRoute } from './Icons.jsx';
 
-const NAV = [
-  { to: '/dashboard', label: 'Dashboard', Icon: IconCar },
-  { to: '/rides', label: 'Find a Ride', Icon: IconRoute },
-  { to: '/rides/new', label: 'Offer a Ride', Icon: IconPlus },
-  { to: '/my-rides', label: 'My Rides', Icon: IconCar },
-  { to: '/messages', label: 'Messages', Icon: IconChat },
-  { to: '/history', label: 'History', Icon: IconBell },
-  { to: '/profile', label: 'Profile', Icon: IconUser },
+const links = [
+  { to: '/dashboard', label: 'Dashboard', icon: IconHome },
+  { to: '/rides', label: 'Find a ride', icon: IconSearch },
+  { to: '/rides/new', label: 'Offer a ride', icon: IconPlus },
+  { to: '/my-rides', label: 'My rides', icon: IconCar },
+  { to: '/messages', label: 'Messages', icon: IconChat },
+  { to: '/history', label: 'Trip history', icon: IconHistory },
+  { to: '/profile', label: 'Profile', icon: IconUser },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
-  };
+  useEffect(() => {
+    notificationsApi.list().then((n) => setUnread(n.filter((x) => !x.read).length)).catch(() => {});
+    const socket = getSocket();
+    if (socket) {
+      const bump = () => setUnread((u) => u + 1);
+      socket.on('chat:message', bump);
+      return () => socket.off('chat:message', bump);
+    }
+  }, []);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar */}
-      <nav
-        style={{
-          width: 220,
-          flexShrink: 0,
-          background: 'var(--surface, #fff)',
-          borderRight: '1px solid var(--border, #e2e8f0)',
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '24px 0',
-        }}
-      >
-        {/* Brand */}
-        <div style={{ padding: '0 20px 24px', fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <IconRoute width={22} height={22} />
-          RideShare<span style={{ color: '#2563eb' }}>ICBT</span>
-        </div>
-
-        {/* Nav links */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, padding: '0 12px' }}>
-          {NAV.map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              style={({ isActive }) => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 12px',
-                borderRadius: 8,
-                fontSize: '0.9rem',
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? '#2563eb' : 'var(--text, #1e293b)',
-                background: isActive ? '#eff6ff' : 'transparent',
-                textDecoration: 'none',
-              })}
-            >
-              <Icon width={18} height={18} />
-              {label}
+    <div className="app-shell">
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        <div className="brand"><IconRoute className="mark" /> RideShare<span style={{ color: 'var(--signal)' }}>ICBT</span></div>
+        <nav>
+          {links.map(({ to, label, icon: Icon }) => (
+            <NavLink key={to} to={to} end={to === '/rides'} className="nav-link" onClick={() => setOpen(false)}>
+              <Icon /> {label}
             </NavLink>
           ))}
+        </nav>
+        <div className="nav-spacer" />
+        <div className="nav-user">
+          <div className="name">{user?.name}</div>
+          <div className="muted">{user?.role}</div>
+          <button className="btn btn-ghost btn-sm btn-block" style={{ marginTop: 10 }} onClick={() => { logout(); navigate('/login'); }}>Sign out</button>
         </div>
-
-        {/* User + logout */}
-        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border, #e2e8f0)', marginTop: 16 }}>
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 4 }}>{user?.name}</div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--muted, #64748b)', marginBottom: 12 }}>{user?.email}</div>
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'var(--muted, #64748b)', fontSize: '0.85rem', padding: 0,
-            }}
-          >
-            <IconLogout width={16} /> Sign out
+      </aside>
+      <div className="main">
+        <header className="topbar">
+          <button className="menu-btn" aria-label="Open menu" onClick={() => setOpen((o) => !o)}><IconMenu /></button>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>Share the road, save the fuel</div>
+          <button className="notif-bell" aria-label="Notifications" onClick={() => navigate('/messages')}>
+            <IconBell />
+            {unread > 0 && <span className="notif-count">{unread}</span>}
           </button>
-        </div>
-      </nav>
-
-      {/* Main content */}
-      <main style={{ flex: 1, padding: '32px', overflowY: 'auto', background: 'var(--bg, #f8fafc)' }}>
-        <Outlet />
-      </main>
+        </header>
+        <main className="content"><Outlet /></main>
+      </div>
     </div>
   );
 }

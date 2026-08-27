@@ -1,27 +1,14 @@
-/**
- * Shared test helpers for backend integration tests.
- * 
- * Exports:
- *  - app      : The Express app (no server started)
- *  - reset    : Clears the datastore between tests
- *  - sampleUser  : Factory for valid user payloads
- *  - sampleRide  : Factory for valid ride payloads
- */
 import { app } from '../src/app.js';
-import { resetDatastore } from '../src/models/datastore.js';
+import { __resetInMemory } from '../src/models/datastore.js';
 
 export { app };
 
 export async function reset() {
-  await resetDatastore();
+  __resetInMemory();
 }
 
 let userCounter = 0;
 
-/**
- * Returns a valid user registration payload.
- * Pass overrides to customise individual fields.
- */
 export function sampleUser(overrides = {}) {
   userCounter++;
   return {
@@ -35,13 +22,8 @@ export function sampleUser(overrides = {}) {
 
 let rideCounter = 0;
 
-/**
- * Returns a valid ride creation payload.
- * Pass overrides to customise individual fields.
- */
 export function sampleRide(overrides = {}) {
   rideCounter++;
-  // Always pick a future date to avoid validation issues
   const date = new Date();
   date.setDate(date.getDate() + 1);
   const yyyy = date.getFullYear();

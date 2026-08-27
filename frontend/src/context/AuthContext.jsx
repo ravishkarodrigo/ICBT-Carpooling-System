@@ -15,41 +15,18 @@ export function AuthProvider({ children }) {
     connectSocket(data.accessToken);
   }, []);
 
-  // Restore session on load.
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    authApi
-      .me()
-      .then((me) => {
-        setUser(me);
-        connectSocket(token);
-      })
+    if (!token) { setLoading(false); return; }
+    authApi.me()
+      .then((me) => { setUser(me); connectSocket(token); })
       .catch(() => localStorage.clear())
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (payload) => {
-    const data = await authApi.login(payload);
-    persist(data);
-    return data;
-  };
-
-  const register = async (payload) => {
-    const data = await authApi.register(payload);
-    persist(data);
-    return data;
-  };
-
-  const logout = () => {
-    localStorage.clear();
-    disconnectSocket();
-    setUser(null);
-  };
-
+  const login = async (payload) => { const d = await authApi.login(payload); persist(d); return d; };
+  const register = async (payload) => { const d = await authApi.register(payload); persist(d); return d; };
+  const logout = () => { localStorage.clear(); disconnectSocket(); setUser(null); };
   const updateUser = (patch) => setUser((u) => ({ ...u, ...patch }));
 
   return (

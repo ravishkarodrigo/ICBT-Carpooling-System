@@ -1,88 +1,50 @@
-/* ------------------------------------------------------------------
-   RideShare ICBT — design tokens
-   Theme: "routes & journeys". Deep slate-navy roads, a teal route line,
-   an amber signal accent for energy/fuel. Space Grotesk for headings,
-   Inter for body. The signature motif is the dashed route line.
-------------------------------------------------------------------- */
+/* ── CSS Custom Properties (Design Tokens) ── */
 :root {
-  /* Palette */
-  --ink: #12283a;          /* deep slate-navy: roads at night */
-  --ink-2: #0d1e2b;        /* darker gradient stop */
-  --ink-soft: #35506a;
-  --route: #0fa3a3;        /* teal: the route line / primary action */
-  --route-dark: #0c8484;
-  --signal: #f5a524;       /* amber: fuel / energy / attention */
-  --signal-dark: #d98a12;
-  --paper: #f6f8f9;        /* app background */
-  --surface: #ffffff;
-  --surface-2: #eef3f5;
-  --line: #dce4e8;
-  --muted: #6b7f8d;
-  --text: #1a2a35;
-  --success: #1f9d6b;
-  --danger: #d64545;
-  --warning: #c98a00;
-
-  /* Typography */
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2128;
+  --border: #30363d;
+  --text: #cdd9e5;
+  --muted: #768390;
+  --signal: #58a6ff;
+  --signal-hover: #79b8ff;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
   --font-body: 'Inter', system-ui, sans-serif;
-
-  /* Shape & depth */
-  --r-sm: 8px;
-  --r-md: 14px;
-  --r-lg: 20px;
-  --shadow-sm: 0 1px 2px rgba(18, 40, 58, 0.06), 0 1px 3px rgba(18, 40, 58, 0.08);
-  --shadow-md: 0 4px 14px rgba(18, 40, 58, 0.10);
-  --shadow-lg: 0 18px 40px rgba(18, 40, 58, 0.16);
-
-  /* Spacing scale */
-  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
-  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+  --transition: 0.18s ease;
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body, #root { height: 100%; }
+html { font-size: 16px; scroll-behavior: smooth; }
 
 body {
-  margin: 0;
-  font-family: var(--font-body);
-  background: var(--paper);
+  background: var(--bg);
   color: var(--text);
-  -webkit-font-smoothing: antialiased;
-  line-height: 1.5;
+  font-family: var(--font-body);
+  line-height: 1.6;
+  min-height: 100vh;
 }
 
-h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink); margin: 0 0 0.4em; line-height: 1.15; }
-h1 { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; }
-h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
-h3 { font-size: 1.15rem; font-weight: 600; }
-a { color: var(--route-dark); text-decoration: none; }
-a:hover { text-decoration: underline; }
+h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
 
-/* Signature: the dashed route line */
-.route-line {
-  height: 2px;
-  background-image: linear-gradient(90deg, var(--route) 60%, transparent 0);
-  background-size: 12px 2px;
-  background-repeat: repeat-x;
-  border: 0;
-  margin: var(--space-5) 0;
-  opacity: 0.5;
-}
+a { color: var(--signal); text-decoration: none; transition: color var(--transition); }
+a:hover { color: var(--signal-hover); }
 
-/* Utility layout */
-.container { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 var(--space-5); }
-.stack > * + * { margin-top: var(--space-4); }
-.row { display: flex; gap: var(--space-4); flex-wrap: wrap; }
-.grid { display: grid; gap: var(--space-4); }
-.grid-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-.muted { color: var(--muted); }
+p { margin-bottom: 0.5rem; }
+p:last-child { margin-bottom: 0; }
+
+hr { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+code { font-family: monospace; background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+
+.muted { color: var(--muted); font-size: 0.9rem; }
 .center { text-align: center; }
-.spread { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-
-:focus-visible { outline: 3px solid var(--route); outline-offset: 2px; border-radius: 4px; }
-
-@media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
-}
+.req { color: var(--danger); }

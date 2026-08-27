@@ -1,7 +1,6 @@
 /**
- * asyncHandler wraps async route handlers so uncaught promise rejections
- * are forwarded to Express's next() error handler automatically.
+ * Wraps an async route handler so that any thrown error is forwarded to the
+ * Express error middleware via next(err), removing try/catch boilerplate.
  */
-export const asyncHandler = (fn) => (req, res, next) => {
+export const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
-};

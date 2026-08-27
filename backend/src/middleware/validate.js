@@ -1,22 +1,18 @@
 import { ApiError } from '../utils/apiError.js';
 
 /**
- * Zod validation middleware.
- * @param {ZodSchema} schema - The Zod schema to validate against.
- * @param {'body'|'query'|'params'} source - Where to read input from. Defaults to 'body'.
+ * Validates req.body (or req.query) against a Zod schema.
+ * On failure it throws a 400 ApiError with field-level details.
  */
-export function validate(schema, source = 'body') {
-  return (req, _res, next) => {
-    const result = schema.safeParse(req[source]);
-    if (!result.success) {
-      const details = result.error.issues.map((issue) => ({
-        field: issue.path.join('.'),
-        message: issue.message,
-      }));
-      return next(ApiError.badRequest('Validation failed', details));
-    }
-    // Replace the source with the parsed (and default-filled) data
-    req[source] = result.data;
-    next();
-  };
-}
+export const validate = (schema, source = 'body') => (req, _res, next) => {
+  const result = schema.safeParse(req[source]);
+  if (!result.success) {
+    const details = result.error.errors.map((e) => ({
+      field: e.path.join('.'),
+      message: e.message,
+    }));
+    return next(ApiError.validation('Validation failed', details));
+  }
+  req[source] = result.data; // use coerced / defaulted values
+  next();
+};

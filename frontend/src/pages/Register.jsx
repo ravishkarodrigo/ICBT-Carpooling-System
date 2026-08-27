@@ -1,64 +1,68 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import { TextField } from '../components/Field.jsx';
+import { useToast } from '../context/ToastContext.jsx';
+import { Field } from '../components/Field.jsx';
 import ErrorBanner from '../components/ErrorBanner.jsx';
 import { IconRoute } from '../components/Icons.jsx';
-
-const ROLES = [
-  { value: 'student', label: 'Student' },
-  { value: 'staff', label: 'Staff' },
-];
 
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' });
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const toast = useToast();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setBusy(true);
+    setLoading(true);
+    setError(null);
+    setFieldErrors({});
+    const data = Object.fromEntries(new FormData(e.target));
     try {
-      await register(form);
-      navigate('/dashboard', { replace: true });
+      await register(data);
+      toast.success('Account created successfully!');
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message);
+      if (err.details) {
+        const map = {};
+        err.details.forEach((d) => (map[d.field] = d.message));
+        setFieldErrors(map);
+      }
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
 
   return (
     <div className="auth-wrap">
-      <aside className="auth-aside">
-        <div className="brand" style={{ marginBottom: 24 }}>
-          <IconRoute className="mark" /> RideShare<span style={{ color: 'var(--signal)' }}>ICBT</span>
-        </div>
-        <h1>Join the campus carpool community.</h1>
-        <p>Register as a student or staff member to start sharing rides to ICBT.</p>
-      </aside>
-
-      <section className="auth-form-side">
-        <div className="auth-card card">
+      <div className="auth-aside">
+        <h1>Share the ride,<br/>split the cost.</h1>
+        <p>Join the ICBT carpooling community to make your daily commute cheaper, greener, and more fun.</p>
+      </div>
+      <div className="auth-form-side">
+        <div className="auth-card">
+          <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: 8, fontSize: '1.25rem', fontWeight: 700 }}>
+            <IconRoute className="mark" /> RideShare<span style={{ color: 'var(--signal)' }}>ICBT</span>
+          </div>
           <h2>Create an account</h2>
-          <p className="muted" style={{ marginTop: -4 }}>It only takes a minute.</p>
           <ErrorBanner message={error} />
-          <form onSubmit={onSubmit} noValidate>
-            <TextField label="Full name" name="name" value={form.name} onChange={onChange} placeholder="Your full name" required />
-            <TextField label="Email" name="email" type="email" value={form.email} onChange={onChange} placeholder="you@icbt.lk" required />
-            <TextField label="Password" name="password" type="password" value={form.password} onChange={onChange} placeholder="Min 8 chars, 1 letter, 1 number" required />
-            <TextField as="select" label="Role" name="role" value={form.role} onChange={onChange} options={ROLES} />
-            <button className="btn btn-primary btn-block" disabled={busy}>{busy ? 'Creating account…' : 'Create account'}</button>
+          <form onSubmit={onSubmit} className="stack">
+            <Field label="Full Name" name="name" required error={fieldErrors.name} />
+            <Field label="Email address" name="email" type="email" required error={fieldErrors.email} />
+            <Field label="Password" name="password" type="password" required error={fieldErrors.password} />
+            <Field label="Role" name="role" as="select" options={[{ value: 'student', label: 'Student' }, { value: 'staff', label: 'Staff' }]} />
+            <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+              {loading ? 'Creating account...' : 'Create account'}
+            </button>
           </form>
-          <hr className="route-line" />
-          <p className="center muted">Already have an account? <Link to="/login">Sign in</Link></p>
+          <div className="center muted" style={{ marginTop: '1.5rem' }}>
+            Already have an account? <Link to="/login">Sign in</Link>
+          </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

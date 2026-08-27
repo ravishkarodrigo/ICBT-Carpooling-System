@@ -1,7 +1,6 @@
 /**
  * Simple ride-matching utility.
- * Filters and scores rides based on search criteria.
- * All comparisons are case-insensitive partial matches.
+ * Filters rides based on search criteria (case-insensitive partial match).
  */
 
 function normalize(str = '') {
@@ -20,7 +19,6 @@ function matchesDate(rideDate = '', searchDate = '') {
 
 function matchesTime(rideTime = '', searchTime = '') {
   if (!searchTime) return true;
-  // Ride's timeStart must be within 60 minutes of the search time
   const [rH, rM] = rideTime.split(':').map(Number);
   const [sH, sM] = searchTime.split(':').map(Number);
   const rideMins = rH * 60 + rM;
@@ -31,11 +29,10 @@ function matchesTime(rideTime = '', searchTime = '') {
 /**
  * @param {Array} rides - Array of ride objects
  * @param {Object} search - Search criteria { origin, destination, date, timeStart }
- * @returns {Array} Filtered and sorted rides
+ * @returns {Array} Filtered rides
  */
 export function matchRides(rides, search = {}) {
   const { origin, destination, date, timeStart } = search;
-
   return rides.filter((ride) => {
     if (!matchesText(ride.origin, origin)) return false;
     if (!matchesText(ride.destination, destination)) return false;

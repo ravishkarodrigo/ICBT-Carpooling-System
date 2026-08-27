@@ -1,102 +1,49 @@
-import { useEffect, useState, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { messagesApi } from '../services/api.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useState, useEffect } from 'react';
+import { notificationsApi } from '../services/api.js';
 import Loader from '../components/Loader.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 
 export default function Messages() {
-  const { user } = useAuth();
-  const [searchParams] = useSearchParams();
-  const rideId = searchParams.get('ride');
-  const withUserId = searchParams.get('with');
-
-  const [messages, setMessages] = useState(null);
-  const [body, setBody] = useState('');
-  const [busy, setBusy] = useState(false);
-  const bottomRef = useRef(null);
-
-  const load = () => {
-    if (!rideId || !withUserId) { setMessages([]); return; }
-    messagesApi.conversation(rideId, withUserId).then(setMessages).catch(() => setMessages([]));
-  };
-
-  useEffect(() => { load(); }, [rideId, withUserId]);
+  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    notificationsApi.list()
+      .then(setNotifications)
+      .finally(() => setLoading(false));
+  }, []);
 
-  const send = async (e) => {
-    e.preventDefault();
-    if (!body.trim()) return;
-    setBusy(true);
+  const markRead = async (id) => {
     try {
-      await messagesApi.send({ rideId, toUserId: withUserId, body: body.trim() });
-      setBody('');
-      load();
-    } finally {
-      setBusy(false);
+      await notificationsApi.markRead(id);
+      setNotifications(n => n.map(x => x.id === id ? { ...x, read: true } : x));
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  if (!rideId || !withUserId) {
-    return (
-      <div className="stack">
-        <h1>Messages</h1>
-        <EmptyState
-          title="No conversation selected"
-          message="Open a ride and tap 'Message driver' to start a conversation."
-        />
-      </div>
-    );
-  }
-
-  if (!messages) return <Loader />;
+  if (loading) return <Loader />;
 
   return (
-    <div className="stack" style={{ maxWidth: 640 }}>
-      <h1>Messages</h1>
-      <div
-        className="card"
-        style={{ display: 'flex', flexDirection: 'column', gap: 10, minHeight: 300, maxHeight: 420, overflowY: 'auto', padding: 16 }}
-      >
-        {messages.length === 0 ? (
-          <EmptyState title="No messages yet" message="Send the first message below." />
-        ) : (
-          messages.map((m) => {
-            const mine = m.fromUserId === user.id;
-            return (
-              <div
-                key={m.id}
-                style={{
-                  alignSelf: mine ? 'flex-end' : 'flex-start',
-                  background: mine ? '#2563eb' : '#f1f5f9',
-                  color: mine ? '#fff' : 'inherit',
-                  padding: '8px 14px',
-                  borderRadius: 14,
-                  maxWidth: '75%',
-                  fontSize: '0.9rem',
-                }}
-              >
-                {m.body}
+    <div className="stack">
+      <h1>Notifications & Messages</h1>
+      {notifications.length === 0 ? (
+        <EmptyState title="All caught up" message="You have no notifications." />
+      ) : (
+        <div className="stack">
+          {notifications.map(n => (
+            <div key={n.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: n.read ? 0.6 : 1 }}>
+              <div>
+                <p style={{ margin: 0 }}>{n.message}</p>
+                <small className="muted">{new Date(n.createdAt).toLocaleString()}</small>
               </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
-      </div>
-      <form onSubmit={send} style={{ display: 'flex', gap: 10 }}>
-        <input
-          className="input"
-          style={{ flex: 1 }}
-          placeholder="Type a message…"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          disabled={busy}
-        />
-        <button className="btn btn-primary" disabled={busy || !body.trim()}>Send</button>
-      </form>
+              {!n.read && (
+                <button className="btn btn-ghost btn-sm" onClick={() => markRead(n.id)}>Mark read</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

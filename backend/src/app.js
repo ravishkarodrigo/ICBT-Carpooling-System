@@ -42,11 +42,6 @@ app.use((err, _req, res, _next) => {
       },
     });
   }
-
-  // Unexpected / unhandled errors — don't leak internals
   console.error('[Unhandled Error]', err);
-  return res.status(500).json({
-    success: false,
-    error: { message: 'Internal server error' },
-  });
+  return res.status(500).json({ success: false, error: { message: 'Internal server error' } });
 });
