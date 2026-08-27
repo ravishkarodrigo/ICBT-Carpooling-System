@@ -1,0 +1,50 @@
+/* ── CSS Custom Properties (Design Tokens) ── */
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2128;
+  --border: #30363d;
+  --text: #cdd9e5;
+  --muted: #768390;
+  --signal: #58a6ff;
+  --signal-hover: #79b8ff;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+  --transition: 0.18s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.2; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+
+a { color: var(--signal); text-decoration: none; transition: color var(--transition); }
+a:hover { color: var(--signal-hover); }
+
+p { margin-bottom: 0.5rem; }
+p:last-child { margin-bottom: 0; }
+
+hr { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+code { font-family: monospace; background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+
+.muted { color: var(--muted); font-size: 0.9rem; }
+.center { text-align: center; }
+.req { color: var(--danger); }
