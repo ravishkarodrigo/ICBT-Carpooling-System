@@ -20,7 +20,7 @@ beforeEach(() => localStorage.clear());
 
 describe('Login page', () => {
   it('submits credentials to the auth service', async () => {
-    render(<MemoryRouter><AuthProvider><Login /></AuthProvider></MemoryRouter>);
+    render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><AuthProvider><Login /></AuthProvider></MemoryRouter>);
     await userEvent.type(screen.getByPlaceholderText('you@icbt.lk'), 'a@icbt.lk');
     await userEvent.type(screen.getByPlaceholderText('Your password'), 'Colombo123');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
