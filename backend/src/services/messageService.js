@@ -2,11 +2,12 @@ import { Messages, Rides } from '../models/datastore.js';
 import { ApiError } from '../utils/apiError.js';
 import { createNotification } from './notificationService.js';
 
-// A user may message about a ride only if they are the driver or a participant
-// (passenger or someone who has requested it). Enforces authorization.
+// A user may message about a ride only if THEY are the driver or an accepted
+// passenger. Checking only the sender (fromUserId) prevents strangers from
+// messaging participants of rides they are not part of.
 async function assertCanMessage(ride, userId, otherUserId) {
   const parties = new Set([ride.driverId, ...(ride.passengerIds || [])]);
-  if (!parties.has(userId) && !parties.has(otherUserId)) {
+  if (!parties.has(userId)) {
     throw ApiError.forbidden('You are not part of this ride conversation');
   }
 }
