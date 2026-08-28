@@ -9,9 +9,11 @@ const ride = {
   driverName: 'Kavindu', status: 'open', seatsAvailable: 2, seatsTotal: 3, notes: '',
 };
 
+const future = { v7_startTransition: true, v7_relativeSplatPath: true };
+
 describe('RideCard', () => {
   it('renders route, driver and seat availability', () => {
-    render(<MemoryRouter><RideCard ride={ride} /></MemoryRouter>);
+    render(<MemoryRouter future={future}><RideCard ride={ride} /></MemoryRouter>);
     expect(screen.getByText('Maharagama')).toBeInTheDocument();
     expect(screen.getByText('ICBT Campus')).toBeInTheDocument();
     expect(screen.getByText(/Kavindu/)).toBeInTheDocument();
@@ -19,7 +21,7 @@ describe('RideCard', () => {
   });
 
   it('links to the ride detail page', () => {
-    render(<MemoryRouter><RideCard ride={ride} /></MemoryRouter>);
+    render(<MemoryRouter future={future}><RideCard ride={ride} /></MemoryRouter>);
     expect(screen.getByRole('link')).toHaveAttribute('href', '/rides/r1');
   });
 });
