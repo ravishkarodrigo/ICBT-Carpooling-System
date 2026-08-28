@@ -26,6 +26,6 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(config.port, () => {
+httpServer.listen(config.port, '0.0.0.0', () => {
   console.log(`[Server] Listening on http://localhost:${config.port}`);
 });
