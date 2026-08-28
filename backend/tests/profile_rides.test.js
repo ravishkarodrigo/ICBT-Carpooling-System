@@ -1,15 +1,15 @@
 import request from 'supertest';
-import { app, reset, sampleUser, sampleRide } from './helpers.js';
+import { server, app, reset, sampleUser, sampleRide } from './helpers.js';
 
 beforeEach(reset);
 
 async function registerAndToken(over) {
-  const res = await request(app).post('/api/auth/register').send(sampleUser(over));
+  const res = await request(server).post('/api/auth/register').send(sampleUser(over));
   return { token: res.body.data.accessToken, user: res.body.data.user };
 }
 
 async function createRide(token, over) {
-  const res = await request(app)
+  const res = await request(server)
     .post('/api/rides')
     .set('Authorization', `Bearer ${token}`)
     .send(sampleRide(over));
@@ -19,7 +19,7 @@ async function createRide(token, over) {
 describe('Auth — profile endpoints', () => {
   test('GET /api/auth/me returns the current user', async () => {
     const { token, user } = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
@@ -28,13 +28,13 @@ describe('Auth — profile endpoints', () => {
   });
 
   test('GET /api/auth/me requires auth', async () => {
-    const res = await request(app).get('/api/auth/me');
+    const res = await request(server).get('/api/auth/me');
     expect(res.status).toBe(401);
   });
 
   test('PATCH /api/auth/me updates profile fields', async () => {
     const { token } = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .patch('/api/auth/me')
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Updated Name', homeArea: 'Colombo 03' });
@@ -48,20 +48,20 @@ describe('Rides — detail & history', () => {
   test('GET /api/rides/:id returns ride detail', async () => {
     const { token } = await registerAndToken();
     const ride = await createRide(token);
-    const res = await request(app).get(`/api/rides/${ride.id}`);
+    const res = await request(server).get(`/api/rides/${ride.id}`);
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(ride.id);
   });
 
   test('GET /api/rides/:id returns 404 for unknown ride', async () => {
-    const res = await request(app).get('/api/rides/nonexistent-id');
+    const res = await request(server).get('/api/rides/nonexistent-id');
     expect(res.status).toBe(404);
   });
 
   test('GET /api/rides/mine returns driving and riding lists', async () => {
     const { token } = await registerAndToken();
     await createRide(token);
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/rides/mine')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
@@ -73,10 +73,10 @@ describe('Rides — detail & history', () => {
     const { token } = await registerAndToken();
     const ride = await createRide(token);
     // Cancel the ride so it appears in history
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/cancel`)
       .set('Authorization', `Bearer ${token}`);
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
@@ -89,12 +89,12 @@ describe('Rides — detail & history', () => {
     const other = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const forbidden = await request(app)
+    const forbidden = await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${other.token}`);
     expect(forbidden.status).toBe(403);
 
-    const ok = await request(app)
+    const ok = await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(ok.status).toBe(200);

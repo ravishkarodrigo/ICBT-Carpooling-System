@@ -20,13 +20,13 @@
  */
 
 import request from 'supertest';
-import { app, reset, sampleUser, sampleRide } from './helpers.js';
+import { server, app, reset, sampleUser, sampleRide } from './helpers.js';
 
 beforeEach(reset);
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 async function registerAndToken(overrides = {}) {
-  const res = await request(app)
+  const res = await request(server)
     .post('/api/auth/register')
     .send(sampleUser(overrides));
   expect(res.status).toBe(201);
@@ -34,7 +34,7 @@ async function registerAndToken(overrides = {}) {
 }
 
 async function createRide(token, overrides = {}) {
-  const res = await request(app)
+  const res = await request(server)
     .post('/api/rides')
     .set('Authorization', `Bearer ${token}`)
     .send(sampleRide(overrides));
@@ -43,14 +43,14 @@ async function createRide(token, overrides = {}) {
 }
 
 async function requestSeat(passengerToken, rideId, message = '') {
-  return request(app)
+  return request(server)
     .post('/api/requests')
     .set('Authorization', `Bearer ${passengerToken}`)
     .send({ rideId, message });
 }
 
 async function decideRequest(driverToken, requestId, decision) {
-  return request(app)
+  return request(server)
     .patch(`/api/requests/${requestId}`)
     .set('Authorization', `Bearer ${driverToken}`)
     .send({ decision });
@@ -89,7 +89,7 @@ describe('US-6 — Request a Seat', () => {
     const passenger = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/requests')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({ rideId: ride.id }); // no message field
@@ -103,7 +103,7 @@ describe('US-6 — Request a Seat', () => {
     const ride = await createRide(driver.token);
     await requestSeat(passenger.token, ride.id);
 
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/requests/outgoing')
       .set('Authorization', `Bearer ${passenger.token}`);
     expect(res.status).toBe(200);
@@ -117,7 +117,7 @@ describe('US-6 — Request a Seat', () => {
     const ride = await createRide(driver.token);
     await requestSeat(passenger.token, ride.id);
 
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/requests/incoming')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -133,7 +133,7 @@ describe('US-6 — Request a Seat', () => {
     await requestSeat(passenger.token, ride1.id);
 
     // driver2 has no requests
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/requests/incoming')
       .set('Authorization', `Bearer ${driver2.token}`);
     expect(res.status).toBe(200);
@@ -154,7 +154,7 @@ describe('US-6 — Request a Seat', () => {
     const ride = await createRide(driver.token);
 
     // Cancel the ride first
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/cancel`)
       .set('Authorization', `Bearer ${driver.token}`);
 
@@ -167,7 +167,7 @@ describe('US-6 — Request a Seat', () => {
     const passenger = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
 
@@ -187,7 +187,7 @@ describe('US-6 — Request a Seat', () => {
 
   test('[US-6-V5] rideId is required in the request body', async () => {
     const passenger = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/requests')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({}); // no rideId
@@ -202,17 +202,17 @@ describe('US-6 — Request a Seat', () => {
 
   // ── Security ─────────────────────────────────────────────────────────────────
   test('[US-6-S1] unauthenticated POST /api/requests is rejected — 401', async () => {
-    const res = await request(app).post('/api/requests').send({ rideId: 'abc' });
+    const res = await request(server).post('/api/requests').send({ rideId: 'abc' });
     expect(res.status).toBe(401);
   });
 
   test('[US-6-S2] GET /api/requests/outgoing requires authentication', async () => {
-    const res = await request(app).get('/api/requests/outgoing');
+    const res = await request(server).get('/api/requests/outgoing');
     expect(res.status).toBe(401);
   });
 
   test('[US-6-S3] GET /api/requests/incoming requires authentication', async () => {
-    const res = await request(app).get('/api/requests/incoming');
+    const res = await request(server).get('/api/requests/incoming');
     expect(res.status).toBe(401);
   });
 
@@ -223,7 +223,7 @@ describe('US-6 — Request a Seat', () => {
     const ride = await createRide(driver.token);
     await requestSeat(passenger.token, ride.id);
 
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -269,7 +269,7 @@ describe('US-7 — Approve / Decline Requests', () => {
 
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.seatsAvailable).toBe(2);
   });
 
@@ -281,7 +281,7 @@ describe('US-7 — Approve / Decline Requests', () => {
 
     await decideRequest(driver.token, req.body.data.id, 'rejected');
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.seatsAvailable).toBe(3);
   });
 
@@ -293,7 +293,7 @@ describe('US-7 — Approve / Decline Requests', () => {
 
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.status).toBe('full');
     expect(detail.body.data.seatsAvailable).toBe(0);
   });
@@ -306,7 +306,7 @@ describe('US-7 — Approve / Decline Requests', () => {
 
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.status).toBe('open');
     expect(detail.body.data.seatsAvailable).toBe(1);
   });
@@ -318,7 +318,7 @@ describe('US-7 — Approve / Decline Requests', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     const names = detail.body.data.passengerNames.map((p) => p.name);
     expect(names).toContain('Sadun Passenger');
   });
@@ -330,7 +330,7 @@ describe('US-7 — Approve / Decline Requests', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const mine = await request(app)
+    const mine = await request(server)
       .get('/api/rides/mine')
       .set('Authorization', `Bearer ${passenger.token}`);
     expect(mine.status).toBe(200);
@@ -349,7 +349,7 @@ describe('US-7 — Approve / Decline Requests', () => {
     await decideRequest(driver.token, r1.body.data.id, 'accepted');
     await decideRequest(driver.token, r2.body.data.id, 'accepted');
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.status).toBe('full');
     expect(detail.body.data.seatsAvailable).toBe(0);
   });
@@ -377,7 +377,7 @@ describe('US-7 — Approve / Decline Requests', () => {
   });
 
   test('[US-7-S3] PATCH /api/requests/:id requires authentication', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .patch('/api/requests/fake-id')
       .send({ decision: 'accepted' });
     expect(res.status).toBe(401);
@@ -390,7 +390,7 @@ describe('US-7 — Approve / Decline Requests', () => {
     const ride = await createRide(driver.token);
     const req = await requestSeat(passenger.token, ride.id);
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/requests/${req.body.data.id}`)
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ decision: 'maybe' }); // invalid
@@ -436,7 +436,7 @@ describe('US-7 — Approve / Decline Requests', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const notifs = await request(app)
+    const notifs = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${passenger.token}`);
     const types = notifs.body.data.map((n) => n.type);
@@ -450,7 +450,7 @@ describe('US-7 — Approve / Decline Requests', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'rejected');
 
-    const notifs = await request(app)
+    const notifs = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${passenger.token}`);
     const types = notifs.body.data.map((n) => n.type);
@@ -468,7 +468,7 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/rides/${ride.id}/cancel`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -479,7 +479,7 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -490,11 +490,11 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/cancel`)
       .set('Authorization', `Bearer ${driver.token}`);
 
-    const list = await request(app).get('/api/rides');
+    const list = await request(server).get('/api/rides');
     const openIds = list.body.data.map((r) => r.id);
     expect(openIds).not.toContain(ride.id);
   });
@@ -503,11 +503,11 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
 
-    const list = await request(app).get('/api/rides');
+    const list = await request(server).get('/api/rides');
     const openIds = list.body.data.map((r) => r.id);
     expect(openIds).not.toContain(ride.id);
   });
@@ -516,11 +516,11 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/cancel`)
       .set('Authorization', `Bearer ${driver.token}`);
 
-    const history = await request(app)
+    const history = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(history.status).toBe(200);
@@ -533,11 +533,11 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
 
-    const history = await request(app)
+    const history = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${driver.token}`);
     const found = history.body.data.find((r) => r.id === ride.id);
@@ -552,11 +552,11 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
 
-    const history = await request(app)
+    const history = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${passenger.token}`);
     const found = history.body.data.find((r) => r.id === ride.id);
@@ -568,7 +568,7 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const history = await request(app)
+    const history = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${driver.token}`);
     const openIds = history.body.data.map((r) => r.id);
@@ -581,7 +581,7 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const other = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/rides/${ride.id}/cancel`)
       .set('Authorization', `Bearer ${other.token}`);
     expect(res.status).toBe(403);
@@ -592,7 +592,7 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const other = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${other.token}`);
     expect(res.status).toBe(403);
@@ -602,7 +602,7 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const res = await request(app).post(`/api/rides/${ride.id}/cancel`);
+    const res = await request(server).post(`/api/rides/${ride.id}/cancel`);
     expect(res.status).toBe(401);
   });
 
@@ -610,14 +610,14 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
 
-    const res = await request(app).post(`/api/rides/${ride.id}/complete`);
+    const res = await request(server).post(`/api/rides/${ride.id}/complete`);
     expect(res.status).toBe(401);
   });
 
   // ── Edge Cases ───────────────────────────────────────────────────────────────
   test('[US-4-E1] cancelling a non-existent ride returns 404', async () => {
     const driver = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/rides/nonexistent-id/cancel')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(404);
@@ -625,14 +625,14 @@ describe('US-4 — Manage a Ride (Cancel / Complete)', () => {
 
   test('[US-4-E2] completing a non-existent ride returns 404', async () => {
     const driver = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/rides/nonexistent-id/complete')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(404);
   });
 
   test('[US-4-E3] GET /api/rides/history requires authentication', async () => {
-    const res = await request(app).get('/api/rides/history');
+    const res = await request(server).get('/api/rides/history');
     expect(res.status).toBe(401);
   });
 });
@@ -650,7 +650,7 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'I will be at the junction at 7:30' });
@@ -667,7 +667,7 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({ rideId: ride.id, toUserId: driver.user.id, body: 'Sounds good!' });
@@ -682,17 +682,17 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    await request(app)
+    await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'First message' });
 
-    await request(app)
+    await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({ rideId: ride.id, toUserId: driver.user.id, body: 'Second message' });
 
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/messages/${ride.id}/${passenger.user.id}`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -708,7 +708,7 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/messages/${ride.id}/${passenger.user.id}`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -722,12 +722,12 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    await request(app)
+    await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'Meet you at 7:30' });
 
-    const notifs = await request(app)
+    const notifs = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${passenger.token}`);
     const types = notifs.body.data.map((n) => n.type);
@@ -736,7 +736,7 @@ describe('US-8 — Messaging', () => {
 
   // ── Security / Authorization ──────────────────────────────────────────────────
   test('[US-8-S1] unauthenticated POST /api/messages is rejected — 401', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .send({ rideId: 'abc', toUserId: 'xyz', body: 'hi' });
     expect(res.status).toBe(401);
@@ -750,7 +750,7 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${stranger.token}`)
       .send({ rideId: ride.id, toUserId: driver.user.id, body: 'Can I sneak in?' });
@@ -769,13 +769,13 @@ describe('US-8 — Messaging', () => {
     await decideRequest(driver.token, r2.body.data.id, 'accepted');
 
     // Message only on ride1
-    await request(app)
+    await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride1.id, toUserId: passenger.user.id, body: 'Ride 1 message' });
 
     // Conversation for ride2 should be empty
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/messages/${ride2.id}/${passenger.user.id}`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -790,7 +790,7 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: '' });
@@ -800,7 +800,7 @@ describe('US-8 — Messaging', () => {
   test('[US-8-V2] rideId is required — 400', async () => {
     const driver = await registerAndToken();
     const passenger = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ toUserId: passenger.user.id, body: 'Hi' });
@@ -809,7 +809,7 @@ describe('US-8 — Messaging', () => {
 
   test('[US-8-V3] toUserId is required — 400', async () => {
     const driver = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: 'some-id', body: 'Hi' });
@@ -823,7 +823,7 @@ describe('US-8 — Messaging', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await decideRequest(driver.token, req.body.data.id, 'accepted');
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'x'.repeat(1001) });
@@ -854,7 +854,7 @@ describe('Sprint 2 — End-to-End Coordination Flow', () => {
     const requestId = reqRes.body.data.id;
 
     // 3. Driver checks incoming requests
-    const incoming = await request(app)
+    const incoming = await request(server)
       .get('/api/requests/incoming')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(incoming.body.data.some((r) => r.id === requestId)).toBe(true);
@@ -865,45 +865,45 @@ describe('Sprint 2 — End-to-End Coordination Flow', () => {
     expect(decision.body.data.status).toBe('accepted');
 
     // 5. Seat count decreases
-    const rideDetail = await request(app).get(`/api/rides/${ride.id}`);
+    const rideDetail = await request(server).get(`/api/rides/${ride.id}`);
     expect(rideDetail.body.data.seatsAvailable).toBe(1);
     expect(rideDetail.body.data.status).toBe('open'); // still open (1 seat left)
 
     // 6. Passenger received a notification
-    const passengerNotifs = await request(app)
+    const passengerNotifs = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${passenger.token}`);
     const types = passengerNotifs.body.data.map((n) => n.type);
     expect(types).toContain('request:accepted');
 
     // 7. Driver messages the passenger
-    const msgRes = await request(app)
+    const msgRes = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'Be at junction at 7:30!' });
     expect(msgRes.status).toBe(201);
 
     // 8. Passenger reads the conversation
-    const conv = await request(app)
+    const conv = await request(server)
       .get(`/api/messages/${ride.id}/${driver.user.id}`)
       .set('Authorization', `Bearer ${passenger.token}`);
     expect(conv.status).toBe(200);
     expect(conv.body.data[0].body).toBe('Be at junction at 7:30!');
 
     // 9. Driver completes the ride
-    const complete = await request(app)
+    const complete = await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(complete.status).toBe(200);
     expect(complete.body.data.status).toBe('completed');
 
     // 10. Both driver and passenger see it in history
-    const driverHistory = await request(app)
+    const driverHistory = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(driverHistory.body.data.find((r) => r.id === ride.id)).toBeDefined();
 
-    const passengerHistory = await request(app)
+    const passengerHistory = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${passenger.token}`);
     expect(passengerHistory.body.data.find((r) => r.id === ride.id)).toBeDefined();

@@ -20,13 +20,13 @@
  */
 
 import request from 'supertest';
-import { app, reset, sampleUser, sampleRide } from './helpers.js';
+import { server, app, reset, sampleUser, sampleRide } from './helpers.js';
 
 beforeEach(reset);
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 async function registerAndToken(overrides = {}) {
-  const res = await request(app)
+  const res = await request(server)
     .post('/api/auth/register')
     .send(sampleUser(overrides));
   expect(res.status).toBe(201);
@@ -34,7 +34,7 @@ async function registerAndToken(overrides = {}) {
 }
 
 async function postRide(token, overrides = {}) {
-  return request(app)
+  return request(server)
     .post('/api/rides')
     .set('Authorization', `Bearer ${token}`)
     .send(sampleRide(overrides));
@@ -46,7 +46,7 @@ async function postRide(token, overrides = {}) {
 describe('US-1 — Registration', () => {
 
   test('[US-1-F1] registers successfully and returns 201 with tokens', async () => {
-    const res = await request(app).post('/api/auth/register').send(sampleUser());
+    const res = await request(server).post('/api/auth/register').send(sampleUser());
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.accessToken).toBeDefined();
@@ -55,7 +55,7 @@ describe('US-1 — Registration', () => {
 
   test('[US-1-F2] returns user object with correct name, email and role', async () => {
     const payload = sampleUser({ name: 'Amal Fernando', role: 'staff' });
-    const res = await request(app).post('/api/auth/register').send(payload);
+    const res = await request(server).post('/api/auth/register').send(payload);
     expect(res.status).toBe(201);
     expect(res.body.data.user.name).toBe('Amal Fernando');
     expect(res.body.data.user.email).toBe(payload.email.toLowerCase());
@@ -63,27 +63,27 @@ describe('US-1 — Registration', () => {
   });
 
   test('[US-1-F3] token returned on register can immediately access protected routes', async () => {
-    const reg = await request(app).post('/api/auth/register').send(sampleUser());
+    const reg = await request(server).post('/api/auth/register').send(sampleUser());
     const token = reg.body.data.accessToken;
-    const profile = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+    const profile = await request(server).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
     expect(profile.status).toBe(200);
   });
 
   test('[US-1-S1] password hash is NEVER returned in the response', async () => {
-    const res = await request(app).post('/api/auth/register').send(sampleUser());
+    const res = await request(server).post('/api/auth/register').send(sampleUser());
     expect(res.body.data.user.passwordHash).toBeUndefined();
     expect(res.body.data.user.password).toBeUndefined();
   });
 
   test('[US-1-S2] email stored lowercase regardless of input casing', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ email: 'CAPITAL@ICBT.LK' }));
     expect(res.body.data.user.email).toBe('capital@icbt.lk');
   });
 
   test('[US-1-V1] rejects weak password — fewer than 8 characters', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ password: 'abc123' }));
     expect(res.status).toBe(400);
@@ -92,28 +92,28 @@ describe('US-1 — Registration', () => {
   });
 
   test('[US-1-V2] rejects password with no number', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ password: 'NoNumbers!' }));
     expect(res.status).toBe(400);
   });
 
   test('[US-1-V3] rejects password with no letter', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ password: '12345678' }));
     expect(res.status).toBe(400);
   });
 
   test('[US-1-V4] rejects invalid email format', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ email: 'not-an-email' }));
     expect(res.status).toBe(400);
   });
 
   test('[US-1-V5] rejects name shorter than 2 characters', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ name: 'A' }));
     expect(res.status).toBe(400);
@@ -121,27 +121,27 @@ describe('US-1 — Registration', () => {
 
   test('[US-1-V6] rejects duplicate email — 409 Conflict', async () => {
     const user = sampleUser();
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app).post('/api/auth/register').send(user);
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server).post('/api/auth/register').send(user);
     expect(res.status).toBe(409);
   });
 
   test('[US-1-V7] accepts both student and staff roles', async () => {
-    const s = await request(app).post('/api/auth/register').send(sampleUser({ role: 'student' }));
-    const st = await request(app).post('/api/auth/register').send(sampleUser({ role: 'staff' }));
+    const s = await request(server).post('/api/auth/register').send(sampleUser({ role: 'student' }));
+    const st = await request(server).post('/api/auth/register').send(sampleUser({ role: 'staff' }));
     expect(s.status).toBe(201);
     expect(st.status).toBe(201);
   });
 
   test('[US-1-V8] rejects unknown roles (e.g. "admin")', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ role: 'admin' }));
     expect(res.status).toBe(400);
   });
 
   test('[US-1-V9] rejects request with missing required fields', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send({ email: 'test@icbt.lk' });
     expect(res.status).toBe(400);
@@ -155,8 +155,8 @@ describe('US-2 — Login & Protected Routes', () => {
 
   test('[US-2-F1] logs in with correct credentials and returns tokens', async () => {
     const user = sampleUser();
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app)
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server)
       .post('/api/auth/login')
       .send({ email: user.email, password: user.password });
     expect(res.status).toBe(200);
@@ -166,7 +166,7 @@ describe('US-2 — Login & Protected Routes', () => {
 
   test('[US-2-F2] GET /api/auth/me returns authenticated user data', async () => {
     const { token, user } = await registerAndToken();
-    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+    const res = await request(server).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(user.id);
     expect(res.body.data.email).toBe(user.email);
@@ -174,8 +174,8 @@ describe('US-2 — Login & Protected Routes', () => {
 
   test('[US-2-F3] login email is case-insensitive', async () => {
     const user = sampleUser({ email: 'login@icbt.lk' });
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app)
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server)
       .post('/api/auth/login')
       .send({ email: 'LOGIN@ICBT.LK', password: user.password });
     expect(res.status).toBe(200);
@@ -183,8 +183,8 @@ describe('US-2 — Login & Protected Routes', () => {
 
   test('[US-2-S1] wrong password returns 401 with generic message — no account enumeration', async () => {
     const user = sampleUser();
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app)
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server)
       .post('/api/auth/login')
       .send({ email: user.email, password: 'WrongPass1' });
     expect(res.status).toBe(401);
@@ -192,7 +192,7 @@ describe('US-2 — Login & Protected Routes', () => {
   });
 
   test('[US-2-S2] non-existent email returns identical 401 message — no enumeration', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/login')
       .send({ email: 'ghost@icbt.lk', password: 'Whatever1' });
     expect(res.status).toBe(401);
@@ -201,50 +201,50 @@ describe('US-2 — Login & Protected Routes', () => {
 
   test('[US-2-S3] password hash never exposed on login response', async () => {
     const user = sampleUser();
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app)
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server)
       .post('/api/auth/login')
       .send({ email: user.email, password: user.password });
     expect(res.body.data.user.passwordHash).toBeUndefined();
   });
 
   test('[US-2-S4] malformed token is rejected with 401', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/auth/me')
       .set('Authorization', 'Bearer this.is.fake');
     expect(res.status).toBe(401);
   });
 
   test('[US-2-S5] refresh token cannot be used as an access token', async () => {
-    const reg = await request(app).post('/api/auth/register').send(sampleUser());
-    const res = await request(app)
+    const reg = await request(server).post('/api/auth/register').send(sampleUser());
+    const res = await request(server)
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${reg.body.data.refreshToken}`);
     expect(res.status).toBe(401);
   });
 
   test('[US-2-S6] missing Authorization header returns 401', async () => {
-    const res = await request(app).get('/api/auth/me');
+    const res = await request(server).get('/api/auth/me');
     expect(res.status).toBe(401);
   });
 
   test('[US-2-P1] GET /api/rides/mine requires authentication', async () => {
-    const res = await request(app).get('/api/rides/mine');
+    const res = await request(server).get('/api/rides/mine');
     expect(res.status).toBe(401);
   });
 
   test('[US-2-P2] POST /api/rides requires authentication', async () => {
-    const res = await request(app).post('/api/rides').send(sampleRide());
+    const res = await request(server).post('/api/rides').send(sampleRide());
     expect(res.status).toBe(401);
   });
 
   test('[US-2-P3] POST /api/requests requires authentication', async () => {
-    const res = await request(app).post('/api/requests').send({ rideId: 'any' });
+    const res = await request(server).post('/api/requests').send({ rideId: 'any' });
     expect(res.status).toBe(401);
   });
 
   test('[US-2-P4] unknown API routes return 404 with error envelope', async () => {
-    const res = await request(app).get('/api/this-does-not-exist');
+    const res = await request(server).get('/api/this-does-not-exist');
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
   });
@@ -277,7 +277,7 @@ describe('US-3 — Post a Ride', () => {
   test('[US-3-F4] ride appears in the public open listing', async () => {
     const { token } = await registerAndToken();
     await postRide(token);
-    const list = await request(app).get('/api/rides');
+    const list = await request(server).get('/api/rides');
     expect(list.status).toBe(200);
     expect(list.body.data.length).toBeGreaterThanOrEqual(1);
   });
@@ -310,7 +310,7 @@ describe('US-3 — Post a Ride', () => {
     const { token } = await registerAndToken();
     const created = await postRide(token);
     const rideId = created.body.data.id;
-    const res = await request(app).get(`/api/rides/${rideId}`);
+    const res = await request(server).get(`/api/rides/${rideId}`);
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(rideId);
   });
@@ -318,7 +318,7 @@ describe('US-3 — Post a Ride', () => {
   test('[US-3-F8] GET /api/rides/mine lists ride under "driving" array', async () => {
     const { token } = await registerAndToken();
     await postRide(token);
-    const res = await request(app).get('/api/rides/mine').set('Authorization', `Bearer ${token}`);
+    const res = await request(server).get('/api/rides/mine').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.data.driving.length).toBeGreaterThanOrEqual(1);
     expect(res.body.data.riding).toHaveLength(0);
@@ -340,7 +340,7 @@ describe('US-3 — Post a Ride', () => {
     const { token } = await registerAndToken();
     const payload = sampleRide();
     delete payload.origin;
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/rides').set('Authorization', `Bearer ${token}`).send(payload);
     expect(res.status).toBe(400);
   });
@@ -349,7 +349,7 @@ describe('US-3 — Post a Ride', () => {
     const { token } = await registerAndToken();
     const payload = sampleRide();
     delete payload.destination;
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/rides').set('Authorization', `Bearer ${token}`).send(payload);
     expect(res.status).toBe(400);
   });
@@ -379,7 +379,7 @@ describe('US-3 — Post a Ride', () => {
   });
 
   test('[US-3-S1] unauthenticated POST /api/rides is rejected — 401', async () => {
-    const res = await request(app).post('/api/rides').send(sampleRide());
+    const res = await request(server).post('/api/rides').send(sampleRide());
     expect(res.status).toBe(401);
   });
 
@@ -388,11 +388,11 @@ describe('US-3 — Post a Ride', () => {
     const other = await registerAndToken();
     const ride = await postRide(driver.token);
     const rideId = ride.body.data.id;
-    const forbidden = await request(app)
+    const forbidden = await request(server)
       .post(`/api/rides/${rideId}/cancel`)
       .set('Authorization', `Bearer ${other.token}`);
     expect(forbidden.status).toBe(403);
-    const ok = await request(app)
+    const ok = await request(server)
       .post(`/api/rides/${rideId}/cancel`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(ok.status).toBe(200);
@@ -403,14 +403,14 @@ describe('US-3 — Post a Ride', () => {
     const driver = await registerAndToken();
     const other = await registerAndToken();
     const ride = await postRide(driver.token);
-    const forbidden = await request(app)
+    const forbidden = await request(server)
       .post(`/api/rides/${ride.body.data.id}/complete`)
       .set('Authorization', `Bearer ${other.token}`);
     expect(forbidden.status).toBe(403);
   });
 
   test('[US-3-E1] GET /api/rides/:id returns 404 for non-existent ride', async () => {
-    const res = await request(app).get('/api/rides/nonexistent-uuid');
+    const res = await request(server).get('/api/rides/nonexistent-uuid');
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
   });
@@ -419,8 +419,8 @@ describe('US-3 — Post a Ride', () => {
     const { token } = await registerAndToken();
     const ride = await postRide(token);
     const rideId = ride.body.data.id;
-    await request(app).post(`/api/rides/${rideId}/cancel`).set('Authorization', `Bearer ${token}`);
-    const list = await request(app).get('/api/rides');
+    await request(server).post(`/api/rides/${rideId}/cancel`).set('Authorization', `Bearer ${token}`);
+    const list = await request(server).get('/api/rides');
     const openIds = list.body.data.map((r) => r.id);
     expect(openIds).not.toContain(rideId);
   });
@@ -429,8 +429,8 @@ describe('US-3 — Post a Ride', () => {
     const { token } = await registerAndToken();
     const ride = await postRide(token);
     const rideId = ride.body.data.id;
-    await request(app).post(`/api/rides/${rideId}/cancel`).set('Authorization', `Bearer ${token}`);
-    const history = await request(app).get('/api/rides/history').set('Authorization', `Bearer ${token}`);
+    await request(server).post(`/api/rides/${rideId}/cancel`).set('Authorization', `Bearer ${token}`);
+    const history = await request(server).get('/api/rides/history').set('Authorization', `Bearer ${token}`);
     expect(history.status).toBe(200);
     const found = history.body.data.find((r) => r.id === rideId);
     expect(found).toBeDefined();
@@ -441,7 +441,7 @@ describe('US-3 — Post a Ride', () => {
     const { token } = await registerAndToken();
     const payload = sampleRide();
     delete payload.notes;
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/rides').set('Authorization', `Bearer ${token}`).send(payload);
     expect(res.status).toBe(201);
     expect(res.body.data.notes).toBe('');
@@ -456,7 +456,7 @@ describe('US-5 — Search & Rank Rides', () => {
   test('[US-5-F1] search by origin returns matching rides with matchScore', async () => {
     const { token } = await registerAndToken();
     await postRide(token, { origin: 'Nugegoda', destination: 'ICBT Campus' });
-    const res = await request(app).get('/api/rides/search').query({ origin: 'nugegoda' });
+    const res = await request(server).get('/api/rides/search').query({ origin: 'nugegoda' });
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     expect(res.body.data[0].matchScore).toBeGreaterThan(0);
@@ -465,7 +465,7 @@ describe('US-5 — Search & Rank Rides', () => {
   test('[US-5-F2] search by destination returns matching rides', async () => {
     const { token } = await registerAndToken();
     await postRide(token, { origin: 'Maharagama', destination: 'ICBT Campus' });
-    const res = await request(app).get('/api/rides/search').query({ destination: 'icbt' });
+    const res = await request(server).get('/api/rides/search').query({ destination: 'icbt' });
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
   });
@@ -473,7 +473,7 @@ describe('US-5 — Search & Rank Rides', () => {
   test('[US-5-F3] exact origin+destination match scores >= 80', async () => {
     const { token } = await registerAndToken();
     await postRide(token, { origin: 'Nugegoda', destination: 'ICBT Campus' });
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/rides/search')
       .query({ origin: 'nugegoda', destination: 'icbt' });
     expect(res.status).toBe(200);
@@ -484,7 +484,7 @@ describe('US-5 — Search & Rank Rides', () => {
     const { token } = await registerAndToken();
     await postRide(token, { origin: 'Nugegoda', destination: 'ICBT Campus' });
     await postRide(token, { origin: 'Maharagama', destination: 'ICBT Campus' });
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/rides/search')
       .query({ origin: 'nugegoda', destination: 'icbt' });
     expect(res.status).toBe(200);
@@ -497,8 +497,8 @@ describe('US-5 — Search & Rank Rides', () => {
   test('[US-5-F5] search is case-insensitive', async () => {
     const { token } = await registerAndToken();
     await postRide(token, { origin: 'Nugegoda', destination: 'ICBT Campus' });
-    const lower = await request(app).get('/api/rides/search').query({ origin: 'nugegoda' });
-    const upper = await request(app).get('/api/rides/search').query({ origin: 'NUGEGODA' });
+    const lower = await request(server).get('/api/rides/search').query({ origin: 'nugegoda' });
+    const upper = await request(server).get('/api/rides/search').query({ origin: 'NUGEGODA' });
     expect(lower.body.data.length).toBe(upper.body.data.length);
   });
 
@@ -509,7 +509,7 @@ describe('US-5 — Search & Rank Rides', () => {
     const { token } = await registerAndToken();
     const ride1 = await postRide(token, { date: '2026-09-01' });                                  // should score higher
     const ride2 = await postRide(token, { date: '2026-10-15', timeStart: '08:00', timeEnd: '09:00' });
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/rides/search')
       .query({ origin: 'nugegoda', date: '2026-09-01' });
     expect(res.status).toBe(200);
@@ -524,7 +524,7 @@ describe('US-5 — Search & Rank Rides', () => {
   test('[US-5-F7] non-matching rides are excluded from search results', async () => {
     const { token } = await registerAndToken();
     await postRide(token, { origin: 'Kandy', destination: 'Peradeniya' });
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/rides/search')
       .query({ origin: 'Colombo', destination: 'icbt' });
     expect(res.status).toBe(200);
@@ -535,24 +535,24 @@ describe('US-5 — Search & Rank Rides', () => {
     const { token } = await registerAndToken();
     const ride = await postRide(token, { origin: 'Nugegoda', destination: 'ICBT' });
     const rideId = ride.body.data.id;
-    await request(app).post(`/api/rides/${rideId}/cancel`).set('Authorization', `Bearer ${token}`);
-    const res = await request(app).get('/api/rides/search').query({ origin: 'nugegoda' });
+    await request(server).post(`/api/rides/${rideId}/cancel`).set('Authorization', `Bearer ${token}`);
+    const res = await request(server).get('/api/rides/search').query({ origin: 'nugegoda' });
     const foundIds = res.body.data.map((r) => r.id);
     expect(foundIds).not.toContain(rideId);
   });
 
   test('[US-5-F9] GET /api/rides is publicly accessible without auth', async () => {
-    const res = await request(app).get('/api/rides');
+    const res = await request(server).get('/api/rides');
     expect(res.status).toBe(200);
   });
 
   test('[US-5-F10] GET /api/rides/search is publicly accessible without auth', async () => {
-    const res = await request(app).get('/api/rides/search').query({ origin: 'any' });
+    const res = await request(server).get('/api/rides/search').query({ origin: 'any' });
     expect(res.status).toBe(200);
   });
 
   test('[US-5-E1] returns empty array when no rides exist', async () => {
-    const res = await request(app).get('/api/rides/search').query({ origin: 'Anywhere' });
+    const res = await request(server).get('/api/rides/search').query({ origin: 'Anywhere' });
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(0);
   });
@@ -560,7 +560,7 @@ describe('US-5 — Search & Rank Rides', () => {
   test('[US-5-E2] partial text match works (e.g. "nugeg" matches "Nugegoda")', async () => {
     const { token } = await registerAndToken();
     await postRide(token, { origin: 'Nugegoda', destination: 'ICBT Campus' });
-    const res = await request(app).get('/api/rides/search').query({ origin: 'nugeg' });
+    const res = await request(server).get('/api/rides/search').query({ origin: 'nugeg' });
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
   });
@@ -573,18 +573,18 @@ describe('Sprint 1 — End-to-End Walking Skeleton', () => {
 
   test('[S1-E2E] register → login → post ride → search finds it with correct score', async () => {
     // 1. Register
-    const regRes = await request(app).post('/api/auth/register').send(sampleUser({ name: 'Dinesh Perera' }));
+    const regRes = await request(server).post('/api/auth/register').send(sampleUser({ name: 'Dinesh Perera' }));
     expect(regRes.status).toBe(201);
 
     // 2. Login
-    const loginRes = await request(app)
+    const loginRes = await request(server)
       .post('/api/auth/login')
       .send({ email: regRes.body.data.user.email, password: 'Colombo123' });
     expect(loginRes.status).toBe(200);
     const token = loginRes.body.data.accessToken;
 
     // 3. Post a ride
-    const rideRes = await request(app)
+    const rideRes = await request(server)
       .post('/api/rides')
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -595,7 +595,7 @@ describe('Sprint 1 — End-to-End Walking Skeleton', () => {
     const rideId = rideRes.body.data.id;
 
     // 4. Search and verify
-    const searchRes = await request(app)
+    const searchRes = await request(server)
       .get('/api/rides/search')
       .query({ origin: 'nugegoda', destination: 'icbt' });
     expect(searchRes.status).toBe(200);

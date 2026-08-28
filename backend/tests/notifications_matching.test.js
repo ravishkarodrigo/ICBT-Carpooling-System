@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { app, reset, sampleUser } from './helpers.js';
+import { server, app, reset, sampleUser } from './helpers.js';
 import { matchRides } from '../src/utils/matching.js';
 
 beforeEach(async () => {
@@ -7,7 +7,7 @@ beforeEach(async () => {
 });
 
 async function registerAndToken(over) {
-  const res = await request(app).post('/api/auth/register').send(sampleUser(over));
+  const res = await request(server).post('/api/auth/register').send(sampleUser(over));
   return { token: res.body.data.accessToken, user: res.body.data.user };
 }
 
@@ -16,7 +16,7 @@ async function registerAndToken(over) {
 describe('Notifications', () => {
   test('GET /api/notifications returns empty list initially', async () => {
     const { token } = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
@@ -28,7 +28,7 @@ describe('Notifications', () => {
     const passenger = await registerAndToken();
 
     // Create a ride
-    const rideRes = await request(app)
+    const rideRes = await request(server)
       .post('/api/rides')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({
@@ -38,12 +38,12 @@ describe('Notifications', () => {
     const rideId = rideRes.body.data.id;
 
     // Passenger submits a request — should trigger a notification to driver
-    await request(app)
+    await request(server)
       .post('/api/requests')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({ rideId });
 
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -55,7 +55,7 @@ describe('Notifications', () => {
     const driver = await registerAndToken();
     const passenger = await registerAndToken();
 
-    const rideRes = await request(app)
+    const rideRes = await request(server)
       .post('/api/rides')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({
@@ -63,17 +63,17 @@ describe('Notifications', () => {
         timeStart: '07:30', timeEnd: '08:30', seatsTotal: 3,
       });
 
-    await request(app)
+    await request(server)
       .post('/api/requests')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({ rideId: rideRes.body.data.id });
 
-    const list = await request(app)
+    const list = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${driver.token}`);
     const notifId = list.body.data[0].id;
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/notifications/${notifId}/read`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -81,7 +81,7 @@ describe('Notifications', () => {
   });
 
   test('GET /api/notifications requires auth', async () => {
-    const res = await request(app).get('/api/notifications');
+    const res = await request(server).get('/api/notifications');
     expect(res.status).toBe(401);
   });
 });

@@ -16,14 +16,14 @@
  */
 
 import request from 'supertest';
-import { app, reset, sampleUser, sampleRide } from './helpers.js';
+import { server, app, reset, sampleUser, sampleRide } from './helpers.js';
 import { scoreRide, matchRides } from '../src/utils/matching.js';
 
 beforeEach(reset);
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 async function registerAndToken(overrides = {}) {
-  const res = await request(app)
+  const res = await request(server)
     .post('/api/auth/register')
     .send(sampleUser(overrides));
   expect(res.status).toBe(201);
@@ -31,7 +31,7 @@ async function registerAndToken(overrides = {}) {
 }
 
 async function createRide(token, overrides = {}) {
-  const res = await request(app)
+  const res = await request(server)
     .post('/api/rides')
     .set('Authorization', `Bearer ${token}`)
     .send(sampleRide(overrides));
@@ -40,14 +40,14 @@ async function createRide(token, overrides = {}) {
 }
 
 async function requestSeat(passengerToken, rideId) {
-  return request(app)
+  return request(server)
     .post('/api/requests')
     .set('Authorization', `Bearer ${passengerToken}`)
     .send({ rideId });
 }
 
 async function acceptRequest(driverToken, requestId) {
-  return request(app)
+  return request(server)
     .patch(`/api/requests/${requestId}`)
     .set('Authorization', `Bearer ${driverToken}`)
     .send({ decision: 'accepted' });
@@ -208,7 +208,7 @@ describe('Ride Lifecycle — Status Machine', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await acceptRequest(driver.token, req.body.data.id);
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.status).toBe('full');
   });
 
@@ -219,7 +219,7 @@ describe('Ride Lifecycle — Status Machine', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await acceptRequest(driver.token, req.body.data.id);
 
-    const list = await request(app).get('/api/rides');
+    const list = await request(server).get('/api/rides');
     const ids = list.body.data.map((r) => r.id);
     expect(ids).not.toContain(ride.id);
   });
@@ -231,7 +231,7 @@ describe('Ride Lifecycle — Status Machine', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await acceptRequest(driver.token, req.body.data.id);
 
-    const search = await request(app)
+    const search = await request(server)
       .get('/api/rides/search')
       .query({ origin: 'Unique-Full-Origin' });
     expect(search.body.data).toHaveLength(0);
@@ -240,22 +240,22 @@ describe('Ride Lifecycle — Status Machine', () => {
   test('[LC-5] cancelling an open ride → status "cancelled"', async () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/cancel`)
       .set('Authorization', `Bearer ${driver.token}`);
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.status).toBe('cancelled');
   });
 
   test('[LC-6] completing an open ride → status "completed"', async () => {
     const driver = await registerAndToken();
     const ride = await createRide(driver.token);
-    await request(app)
+    await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.status).toBe('completed');
   });
 
@@ -284,7 +284,7 @@ describe('Ride Lifecycle — Status Machine', () => {
     const r2 = await requestSeat(p2.token, ride.id);
     await acceptRequest(driver.token, r2.body.data.id);
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.seatsAvailable).toBe(1); // 3 - 2
   });
 
@@ -294,7 +294,7 @@ describe('Ride Lifecycle — Status Machine', () => {
     await createRide(driver.token, { date: '2026-09-01', timeStart: '07:00', timeEnd: '08:00' });
     await createRide(driver.token, { date: '2026-09-01', timeStart: '08:00', timeEnd: '09:00' });
 
-    const list = await request(app).get('/api/rides');
+    const list = await request(server).get('/api/rides');
     expect(list.status).toBe(200);
     const dates = list.body.data.map((r) => `${r.date}${r.timeStart}`);
     for (let i = 0; i < dates.length - 1; i++) {
@@ -308,12 +308,12 @@ describe('Ride Lifecycle — Status Machine', () => {
     const ride = await createRide(driver.token, { seatsTotal: 2 });
     const req = await requestSeat(passenger.token, ride.id);
 
-    await request(app)
+    await request(server)
       .patch(`/api/requests/${req.body.data.id}`)
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ decision: 'rejected' });
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.seatsAvailable).toBe(2); // unchanged
   });
 });
@@ -324,19 +324,19 @@ describe('Ride Lifecycle — Status Machine', () => {
 describe('API Contract — Response Shape', () => {
 
   test('[API-1] all successful responses have success:true + data field', async () => {
-    const res = await request(app).get('/api/rides');
+    const res = await request(server).get('/api/rides');
     expect(res.body.success).toBe(true);
     expect(res.body.data).toBeDefined();
   });
 
   test('[API-2] all error responses have success:false + error.message', async () => {
-    const res = await request(app).get('/api/rides/nonexistent');
+    const res = await request(server).get('/api/rides/nonexistent');
     expect(res.body.success).toBe(false);
     expect(res.body.error.message).toBeDefined();
   });
 
   test('[API-3] registration response includes accessToken, refreshToken and user', async () => {
-    const res = await request(app).post('/api/auth/register').send(sampleUser());
+    const res = await request(server).post('/api/auth/register').send(sampleUser());
     expect(res.body.data.accessToken).toBeDefined();
     expect(res.body.data.refreshToken).toBeDefined();
     expect(res.body.data.user).toBeDefined();
@@ -344,8 +344,8 @@ describe('API Contract — Response Shape', () => {
 
   test('[API-4] login response matches registration response shape', async () => {
     const user = sampleUser();
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app).post('/api/auth/login').send({ email: user.email, password: user.password });
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server).post('/api/auth/login').send({ email: user.email, password: user.password });
     expect(res.body.data.accessToken).toBeDefined();
     expect(res.body.data.refreshToken).toBeDefined();
     expect(res.body.data.user.id).toBeDefined();
@@ -362,7 +362,7 @@ describe('API Contract — Response Shape', () => {
   test('[API-6] ride search results include matchScore', async () => {
     const driver = await registerAndToken();
     await createRide(driver.token, { origin: 'Nugegoda' });
-    const res = await request(app).get('/api/rides/search').query({ origin: 'nugegoda' });
+    const res = await request(server).get('/api/rides/search').query({ origin: 'nugegoda' });
     expect(res.status).toBe(200);
     expect(typeof res.body.data[0].matchScore).toBe('number');
   });
@@ -370,7 +370,7 @@ describe('API Contract — Response Shape', () => {
   test('[API-7] GET /api/rides/mine returns driving + riding arrays', async () => {
     const { token } = await registerAndToken();
     await createRide(token);
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/rides/mine')
       .set('Authorization', `Bearer ${token}`);
     expect(Array.isArray(res.body.data.driving)).toBe(true);
@@ -383,7 +383,7 @@ describe('API Contract — Response Shape', () => {
     const ride = await createRide(driver.token);
     await requestSeat(passenger.token, ride.id);
 
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${driver.token}`);
     const notif = res.body.data[0];
@@ -410,7 +410,7 @@ describe('API Contract — Response Shape', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await acceptRequest(driver.token, req.body.data.id);
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'Hello!' });
@@ -421,13 +421,13 @@ describe('API Contract — Response Shape', () => {
   });
 
   test('[API-11] GET /api/health returns {status:"ok"} publicly', async () => {
-    const res = await request(app).get('/api/health');
+    const res = await request(server).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('ok');
   });
 
   test('[API-12] Content-Type is application/json for all API responses', async () => {
-    const res = await request(app).get('/api/rides');
+    const res = await request(server).get('/api/rides');
     expect(res.headers['content-type']).toMatch(/application\/json/);
   });
 });
@@ -441,7 +441,7 @@ describe('Socket.IO — Auth Middleware (token contract)', () => {
   // the same verifyToken() function as the REST middleware.
 
   test('[SOCK-1] access token payload has id and role — socket can extract them', async () => {
-    const res = await request(app).post('/api/auth/register').send(sampleUser());
+    const res = await request(server).post('/api/auth/register').send(sampleUser());
     const { accessToken } = res.body.data;
     const parts = accessToken.split('.');
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
@@ -452,7 +452,7 @@ describe('Socket.IO — Auth Middleware (token contract)', () => {
   });
 
   test('[SOCK-2] refresh token cannot be used as socket auth token (wrong type)', async () => {
-    const res = await request(app).post('/api/auth/register').send(sampleUser());
+    const res = await request(server).post('/api/auth/register').send(sampleUser());
     const { refreshToken } = res.body.data;
     const parts = refreshToken.split('.');
     const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
@@ -470,7 +470,7 @@ describe('Socket.IO — Auth Middleware (token contract)', () => {
     await acceptRequest(driver.token, req.body.data.id);
 
     // Same path as socket chat:send → sendMessage
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'Socket equivalent test' });
@@ -514,11 +514,11 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
     const r2 = await requestSeat(p2.token, ride2.id);
     await acceptRequest(driver.token, r2.body.data.id);
 
-    await request(app).post(`/api/rides/${ride1.id}/complete`).set('Authorization', `Bearer ${driver.token}`);
-    await request(app).post(`/api/rides/${ride2.id}/complete`).set('Authorization', `Bearer ${driver.token}`);
+    await request(server).post(`/api/rides/${ride1.id}/complete`).set('Authorization', `Bearer ${driver.token}`);
+    await request(server).post(`/api/rides/${ride2.id}/complete`).set('Authorization', `Bearer ${driver.token}`);
 
-    const h1 = await request(app).get('/api/rides/history').set('Authorization', `Bearer ${p1.token}`);
-    const h2 = await request(app).get('/api/rides/history').set('Authorization', `Bearer ${p2.token}`);
+    const h1 = await request(server).get('/api/rides/history').set('Authorization', `Bearer ${p1.token}`);
+    const h2 = await request(server).get('/api/rides/history').set('Authorization', `Bearer ${p2.token}`);
 
     expect(h1.body.data.map((r) => r.id)).toContain(ride1.id);
     expect(h1.body.data.map((r) => r.id)).not.toContain(ride2.id);
@@ -533,7 +533,7 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
     const ride2 = await createRide(driver.token);
 
     const r1 = await requestSeat(passenger.token, ride1.id);
-    await request(app)
+    await request(server)
       .patch(`/api/requests/${r1.body.data.id}`)
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ decision: 'rejected' });
@@ -550,15 +550,15 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await acceptRequest(driver.token, req.body.data.id);
 
-    await request(app)
+    await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'Thanks for riding!' });
 
-    await request(app).post(`/api/rides/${ride.id}/complete`).set('Authorization', `Bearer ${driver.token}`);
+    await request(server).post(`/api/rides/${ride.id}/complete`).set('Authorization', `Bearer ${driver.token}`);
 
     // Messages should still be readable after completion
-    const conv = await request(app)
+    const conv = await request(server)
       .get(`/api/messages/${ride.id}/${passenger.user.id}`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(conv.status).toBe(200);
@@ -575,12 +575,12 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
     // 2. Accept → passenger notified
     await acceptRequest(driver.token, req.body.data.id);
     // 3. Message → passenger notified
-    await request(app)
+    await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'Meet at 7:30' });
 
-    const passengerNotifs = await request(app)
+    const passengerNotifs = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${passenger.token}`);
 
@@ -591,7 +591,7 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
 
   test('[INT-5] profile update name is reflected in driverName on new rides', async () => {
     const driver = await registerAndToken({ name: 'Old Name' });
-    await request(app)
+    await request(server)
       .patch('/api/auth/me')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ name: 'New Name' });
@@ -606,7 +606,7 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
     await createRide(d1.token, { origin: 'Nugegoda', destination: 'ICBT' });
     await createRide(d2.token, { origin: 'Nugegoda', destination: 'ICBT' });
 
-    const res = await request(app).get('/api/rides/search').query({ origin: 'nugegoda' });
+    const res = await request(server).get('/api/rides/search').query({ origin: 'nugegoda' });
     expect(res.body.data.length).toBeGreaterThanOrEqual(2);
     res.body.data.forEach((r) => expect(r.matchScore).toBeGreaterThan(0));
   });
@@ -618,7 +618,7 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
     const req = await requestSeat(passenger.token, ride.id);
     await acceptRequest(driver.token, req.body.data.id);
 
-    const outgoing = await request(app)
+    const outgoing = await request(server)
       .get('/api/requests/outgoing')
       .set('Authorization', `Bearer ${passenger.token}`);
 
@@ -628,7 +628,7 @@ describe('Cross-Sprint Integration — Advanced Flows', () => {
 
   test('[INT-8] driver GET /api/requests/incoming — no requests shows empty array', async () => {
     const driver = await registerAndToken();
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/requests/incoming')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(res.status).toBe(200);
@@ -647,7 +647,7 @@ describe('Sprint 4 — End-to-End: Full Application Flow', () => {
     const passenger = await registerAndToken({ name: 'Nimali Passenger' });
 
     // Sprint 3: Profile update
-    await request(app)
+    await request(server)
       .patch('/api/auth/me')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ phone: '0771234567', homeArea: 'Maharagama' });
@@ -659,7 +659,7 @@ describe('Sprint 4 — End-to-End: Full Application Flow', () => {
     expect(ride.driverName).toBe('Kasun Driver');
 
     // Sprint 1: Search finds it
-    const searchRes = await request(app)
+    const searchRes = await request(server)
       .get('/api/rides/search')
       .query({ origin: 'nugeg', destination: 'icbt' });
     expect(searchRes.body.data.find((r) => r.id === ride.id)).toBeDefined();
@@ -670,7 +670,7 @@ describe('Sprint 4 — End-to-End: Full Application Flow', () => {
     expect(reqRes.status).toBe(201);
 
     // Sprint 3: Driver notified
-    const driverNotifs = await request(app)
+    const driverNotifs = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(driverNotifs.body.data[0].type).toBe('request:new');
@@ -679,13 +679,13 @@ describe('Sprint 4 — End-to-End: Full Application Flow', () => {
     await acceptRequest(driver.token, reqRes.body.data.id);
 
     // Sprint 3: Passenger notified
-    const paxNotifs = await request(app)
+    const paxNotifs = await request(server)
       .get('/api/notifications')
       .set('Authorization', `Bearer ${passenger.token}`);
     expect(paxNotifs.body.data.some((n) => n.type === 'request:accepted')).toBe(true);
 
     // Sprint 2: Chat
-    const msgRes = await request(app)
+    const msgRes = await request(server)
       .post('/api/messages')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id, toUserId: passenger.user.id, body: 'Meet at junction at 7!' });
@@ -700,24 +700,24 @@ describe('Sprint 4 — End-to-End: Full Application Flow', () => {
     expect(score).toBeGreaterThanOrEqual(80);
 
     // Sprint 2: Complete the ride
-    const complete = await request(app)
+    const complete = await request(server)
       .post(`/api/rides/${ride.id}/complete`)
       .set('Authorization', `Bearer ${driver.token}`);
     expect(complete.body.data.status).toBe('completed');
 
     // Sprint 3: Both see it in history
-    const driverHist = await request(app)
+    const driverHist = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${driver.token}`);
     expect(driverHist.body.data.find((r) => r.id === ride.id)).toBeDefined();
 
-    const paxHist = await request(app)
+    const paxHist = await request(server)
       .get('/api/rides/history')
       .set('Authorization', `Bearer ${passenger.token}`);
     expect(paxHist.body.data.find((r) => r.id === ride.id)).toBeDefined();
 
     // Sprint 4: Lifecycle — ride no longer in open list
-    const openList = await request(app).get('/api/rides');
+    const openList = await request(server).get('/api/rides');
     expect(openList.body.data.find((r) => r.id === ride.id)).toBeUndefined();
   });
 });

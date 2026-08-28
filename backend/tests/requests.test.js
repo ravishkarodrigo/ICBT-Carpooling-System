@@ -1,15 +1,15 @@
 import request from 'supertest';
-import { app, reset, sampleUser, sampleRide } from './helpers.js';
+import { server, app, reset, sampleUser, sampleRide } from './helpers.js';
 
 beforeEach(reset);
 
 async function registerAndToken(over) {
-  const res = await request(app).post('/api/auth/register').send(sampleUser(over));
+  const res = await request(server).post('/api/auth/register').send(sampleUser(over));
   return { token: res.body.data.accessToken, user: res.body.data.user };
 }
 
 async function makeRide(token, over) {
-  const res = await request(app)
+  const res = await request(server)
     .post('/api/rides')
     .set('Authorization', `Bearer ${token}`)
     .send(sampleRide(over));
@@ -22,19 +22,19 @@ describe('Ride requests and seat management', () => {
     const passenger = await registerAndToken();
     const ride = await makeRide(driver.token, { seatsTotal: 1 });
 
-    const reqRes = await request(app)
+    const reqRes = await request(server)
       .post('/api/requests')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({ rideId: ride.id, message: 'Can I join?' });
     expect(reqRes.status).toBe(201);
 
-    const decide = await request(app)
+    const decide = await request(server)
       .patch(`/api/requests/${reqRes.body.data.id}`)
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ decision: 'accepted' });
     expect(decide.status).toBe(200);
 
-    const detail = await request(app).get(`/api/rides/${ride.id}`);
+    const detail = await request(server).get(`/api/rides/${ride.id}`);
     expect(detail.body.data.seatsAvailable).toBe(0);
     expect(detail.body.data.status).toBe('full');
   });
@@ -45,12 +45,12 @@ describe('Ride requests and seat management', () => {
     const stranger = await registerAndToken();
     const ride = await makeRide(driver.token);
 
-    const reqRes = await request(app)
+    const reqRes = await request(server)
       .post('/api/requests')
       .set('Authorization', `Bearer ${passenger.token}`)
       .send({ rideId: ride.id });
 
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/api/requests/${reqRes.body.data.id}`)
       .set('Authorization', `Bearer ${stranger.token}`)
       .send({ decision: 'accepted' });
@@ -60,7 +60,7 @@ describe('Ride requests and seat management', () => {
   test('driver cannot request their own ride', async () => {
     const driver = await registerAndToken();
     const ride = await makeRide(driver.token);
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/requests')
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ rideId: ride.id });
@@ -73,12 +73,12 @@ describe('Ride requests and seat management', () => {
     const p2 = await registerAndToken();
     const ride = await makeRide(driver.token, { seatsTotal: 1 });
 
-    const r1 = await request(app).post('/api/requests').set('Authorization', `Bearer ${p1.token}`).send({ rideId: ride.id });
-    const r2 = await request(app).post('/api/requests').set('Authorization', `Bearer ${p2.token}`).send({ rideId: ride.id });
-    await request(app).patch(`/api/requests/${r1.body.data.id}`).set('Authorization', `Bearer ${driver.token}`).send({ decision: 'accepted' });
+    const r1 = await request(server).post('/api/requests').set('Authorization', `Bearer ${p1.token}`).send({ rideId: ride.id });
+    const r2 = await request(server).post('/api/requests').set('Authorization', `Bearer ${p2.token}`).send({ rideId: ride.id });
+    await request(server).patch(`/api/requests/${r1.body.data.id}`).set('Authorization', `Bearer ${driver.token}`).send({ decision: 'accepted' });
 
     // Ride is now full; second acceptance should fail.
-    const second = await request(app)
+    const second = await request(server)
       .patch(`/api/requests/${r2.body.data.id}`)
       .set('Authorization', `Bearer ${driver.token}`)
       .send({ decision: 'accepted' });

@@ -1,18 +1,18 @@
 import request from 'supertest';
-import { app, reset, sampleUser } from './helpers.js';
+import { server, app, reset, sampleUser } from './helpers.js';
 
 beforeEach(reset);
 
 describe('Authentication', () => {
   test('registers a new user and returns tokens', async () => {
-    const res = await request(app).post('/api/auth/register').send(sampleUser());
+    const res = await request(server).post('/api/auth/register').send(sampleUser());
     expect(res.status).toBe(201);
     expect(res.body.data.accessToken).toBeDefined();
     expect(res.body.data.user.passwordHash).toBeUndefined();
   });
 
   test('rejects weak passwords', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/register')
       .send(sampleUser({ password: 'weak' }));
     expect(res.status).toBe(400);
@@ -21,15 +21,15 @@ describe('Authentication', () => {
 
   test('prevents duplicate email registration', async () => {
     const user = sampleUser();
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app).post('/api/auth/register').send(user);
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server).post('/api/auth/register').send(user);
     expect(res.status).toBe(409);
   });
 
   test('logs in with correct credentials', async () => {
     const user = sampleUser();
-    await request(app).post('/api/auth/register').send(user);
-    const res = await request(app)
+    await request(server).post('/api/auth/register').send(user);
+    const res = await request(server)
       .post('/api/auth/login')
       .send({ email: user.email, password: user.password });
     expect(res.status).toBe(200);
@@ -37,7 +37,7 @@ describe('Authentication', () => {
   });
 
   test('does not reveal whether an email exists on bad login', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/auth/login')
       .send({ email: 'nobody@icbt.lk', password: 'whatever1' });
     expect(res.status).toBe(401);
