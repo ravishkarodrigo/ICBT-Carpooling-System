@@ -1,0 +1,23 @@
+
+> carpooling-backend@1.0.0 test
+> cross-env NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --forceExit
+
+(node:12048) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS tests/sprint4.test.js (15.457 s)
+PASS tests/sprint2.test.js (32.159 s)
+PASS tests/sprint1.test.js (15.81 s)
+PASS tests/sprint3.test.js (23.154 s)
+PASS tests/profile_rides.test.js
+PASS tests/requests.test.js
+PASS tests/auth.test.js
+PASS tests/rides.test.js
+PASS tests/notifications_matching.test.js
+PASS tests/security.test.js
+
+Test Suites: 10 passed, 10 total
+Tests:       282 passed, 282 total
+Snapshots:   0 total
+Time:        102.181 s
+Ran all test suites.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?
