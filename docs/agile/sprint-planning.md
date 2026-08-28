@@ -36,6 +36,17 @@
 | Security testing pass |  | 3 | all |
 | Deploy to public URL |  | 3 | Docker |
 
+## Sprint 4 — "Polish & enhancements" (dates: ____ to ____)
+**Sprint goal:** Real-time socket layer verified, full frontend component coverage, API contract hardened, and Could stories completed.
+| Story / task | Owner | Est. | Dependency |
+|--------------|-------|------|------------|
+| US-10 (profile editing — full coverage) |  | 2 | US-9 |
+| Socket.IO chat layer tests |  | 3 | US-8 |
+| Frontend component tests (Register, Rides, Dashboard, ProtectedRoute) |  | 5 | US-2 |
+| API service layer tests (api.js / AuthContext) |  | 3 | all |
+| Ride lifecycle regression (seat edge cases, status machine) |  | 2 | US-7 |
+| Matching algorithm unit tests (scoring, ranking, time overlap) |  | 2 | US-5 |
+
 ## Velocity log
 | Sprint | Committed pts | Completed pts | Notes / scope changes |
 |--------|---------------|---------------|-----------------------|

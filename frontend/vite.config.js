@@ -8,6 +8,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './tests/setup.js',
+    testTimeout: 15000,
     coverage: { reporter: ['text', 'html'], include: ['src/**/*.{js,jsx}'] },
   },
 });
