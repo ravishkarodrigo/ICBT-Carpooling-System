@@ -11,6 +11,13 @@ import { notFoundHandler, errorHandler } from './middleware/error.js';
 export function createApp() {
   const app = express();
 
+  app.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "ICBT Carpooling API is running"
+  });
+});
+
   app.use(helmet());
   app.use(cors({ origin: config.clientOrigin, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
